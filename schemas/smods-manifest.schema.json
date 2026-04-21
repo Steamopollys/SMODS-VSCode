@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smods.dev/manifest.schema.json",
+  "title": "Smods Mod Manifest",
+  "description": "Metadata describing a Smods mod. Saved as <mod_id>.json inside the mod folder.",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "prefix", "main_file"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[^\\s]+$",
+      "minLength": 1,
+      "not": {
+        "enum": ["Smods", "smods", "Lovely", "lovely", "Balatro", "balatro"]
+      },
+      "description": "Unique identifier. No spaces. \"Smods\", \"Lovely\", and \"Balatro\" are reserved."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name shown in the mod menu."
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Optional shorter name shown in the side menu."
+    },
+    "author": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "List of author names. Must be an array even for a single author."
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description. For rich formatting, use a localization entry at G.localization.descriptions.Mod[id]."
+    },
+    "prefix": {
+      "type": "string",
+      "pattern": "^[^\\s]+$",
+      "minLength": 1,
+      "description": "Prepended to all object keys registered by the mod. Must be unique across installed mods."
+    },
+    "main_file": {
+      "type": "string",
+      "pattern": "\\.lua$",
+      "description": "Entry-point Lua file, loaded when the mod is initialized. Must include the .lua extension."
+    },
+    "priority": {
+      "type": "integer",
+      "description": "Load priority — lower numbers load first. Ties are broken alphabetically by ID."
+    },
+    "badge_colour": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{6}$",
+      "description": "Hex colour (6 digits, no leading #) for the mod badge background."
+    },
+    "badge_text_colour": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{6}$",
+      "description": "Hex colour (6 digits, no leading #) for the mod badge text."
+    },
+    "version": {
+      "type": "string",
+      "description": "Mod version. SemVer recommended (e.g. \"1.2.3\")."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Either \"ModID\" or \"ModID (>=X.Y.Z)\" style constraint."
+      },
+      "description": "Mods this mod requires. Constraints use the (>=1.2.3) syntax."
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Mods this mod is incompatible with."
+    },
+    "provides": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Declares this mod satisfies dependencies on another mod ID (useful for API stand-ins)."
+    },
+    "dump_loc": {
+      "type": "boolean",
+      "description": "Dev-only: dumps localization changes to file on startup. Do NOT ship with this enabled.",
+      "default": false
+    }
+  }
+}

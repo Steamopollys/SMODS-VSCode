@@ -1,0 +1,177 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Lovely Patch",
+  "scopeName": "source.lovely-patch",
+  "fileTypes": [],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#array-table-header" },
+    { "include": "#table-header" },
+    { "include": "#lua-payload-multiline" },
+    { "include": "#lua-payload-multiline-literal" },
+    { "include": "#lua-payload-inline" },
+    { "include": "#lua-payload-inline-literal" },
+    { "include": "#keyval" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.lovely-patch",
+      "match": "\\s*(#.*)$",
+      "captures": {
+        "1": { "name": "comment.line.number-sign.lovely-patch" }
+      }
+    },
+    "array-table-header": {
+      "name": "keyword.control.section.array.lovely-patch",
+      "match": "^\\s*(\\[\\[[^\\]]+\\]\\])",
+      "captures": {
+        "1": { "name": "entity.name.section.lovely-patch" }
+      }
+    },
+    "table-header": {
+      "name": "keyword.control.section.lovely-patch",
+      "match": "^\\s*(\\[[^\\]]+\\])",
+      "captures": {
+        "1": { "name": "entity.name.section.lovely-patch" }
+      }
+    },
+    "lua-payload-multiline": {
+      "name": "meta.payload.multiline.lovely-patch",
+      "begin": "^\\s*(payload)\\s*(=)\\s*(\"\"\")",
+      "end": "(\"\"\")",
+      "beginCaptures": {
+        "1": { "name": "variable.other.key.lovely-patch" },
+        "2": { "name": "keyword.operator.assignment.lovely-patch" },
+        "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+      },
+      "contentName": "meta.embedded.block.lua",
+      "patterns": [{ "include": "source.lua" }]
+    },
+    "lua-payload-multiline-literal": {
+      "name": "meta.payload.multiline.literal.lovely-patch",
+      "begin": "^\\s*(payload)\\s*(=)\\s*(''')",
+      "end": "(''')",
+      "beginCaptures": {
+        "1": { "name": "variable.other.key.lovely-patch" },
+        "2": { "name": "keyword.operator.assignment.lovely-patch" },
+        "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+      },
+      "contentName": "meta.embedded.block.lua",
+      "patterns": [{ "include": "source.lua" }]
+    },
+    "lua-payload-inline": {
+      "name": "meta.payload.inline.lovely-patch",
+      "begin": "^\\s*(payload)\\s*(=)\\s*(\")",
+      "end": "(?<!\\\\)(\")|$",
+      "beginCaptures": {
+        "1": { "name": "variable.other.key.lovely-patch" },
+        "2": { "name": "keyword.operator.assignment.lovely-patch" },
+        "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+      },
+      "contentName": "meta.embedded.inline.lua",
+      "patterns": [{ "include": "source.lua" }]
+    },
+    "lua-payload-inline-literal": {
+      "name": "meta.payload.inline.literal.lovely-patch",
+      "begin": "^\\s*(payload)\\s*(=)\\s*(?!''')(')(?!')",
+      "end": "(')|$",
+      "beginCaptures": {
+        "1": { "name": "variable.other.key.lovely-patch" },
+        "2": { "name": "keyword.operator.assignment.lovely-patch" },
+        "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+      },
+      "contentName": "meta.embedded.inline.lua",
+      "patterns": [{ "include": "source.lua" }]
+    },
+    "keyval": {
+      "patterns": [
+        {
+          "comment": "boolean value",
+          "match": "^\\s*(\\w+)\\s*(=)\\s*(true|false)\\s*$",
+          "captures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "constant.language.boolean.lovely-patch" }
+          }
+        },
+        {
+          "comment": "numeric value",
+          "match": "^\\s*(\\w+)\\s*(=)\\s*(-?[0-9]+(?:\\.[0-9]*)?)\\s*$",
+          "captures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "constant.numeric.lovely-patch" }
+          }
+        },
+        {
+          "comment": "triple-quoted string value",
+          "begin": "^\\s*(\\w+)\\s*(=)\\s*(\"\"\")",
+          "end": "(\"\"\")",
+          "beginCaptures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+          },
+          "name": "string.quoted.triple.lovely-patch"
+        },
+        {
+          "comment": "triple single-quoted literal string value",
+          "begin": "^\\s*(\\w+)\\s*(=)\\s*(''')",
+          "end": "(''')",
+          "beginCaptures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+          },
+          "name": "string.quoted.triple.lovely-patch"
+        },
+        {
+          "comment": "inline string value",
+          "begin": "^\\s*(\\w+)\\s*(=)\\s*(\")",
+          "end": "(?<!\\\\)(\")|$",
+          "beginCaptures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+          },
+          "name": "string.quoted.double.lovely-patch"
+        },
+        {
+          "comment": "inline literal string value",
+          "begin": "^\\s*(\\w+)\\s*(=)\\s*(')",
+          "end": "(')|$",
+          "beginCaptures": {
+            "1": { "name": "variable.other.key.lovely-patch" },
+            "2": { "name": "keyword.operator.assignment.lovely-patch" },
+            "3": { "name": "punctuation.definition.string.begin.lovely-patch" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.lovely-patch" }
+          },
+          "name": "string.quoted.single.lovely-patch"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,544 @@
+{
+  "SMODS Joker": {
+    "prefix": "smods-joker",
+    "description": "SMODS.Joker definition with calculate function",
+    "body": [
+      "SMODS.Joker {",
+      "    key = '${1:my_joker}',",
+      "    loc_txt = {",
+      "        name = '${2:Joker Name}',",
+      "        text = {",
+      "            '${3:{C:mult}+#1#{} Mult}'",
+      "        }",
+      "    },",
+      "    config = { extra = { ${4:mult = 4} } },",
+      "    rarity = ${5|1,2,3,4|},",
+      "    atlas = '${6:jokers}',",
+      "    pos = { x = ${7:0}, y = ${8:0} },",
+      "    cost = ${9:4},",
+      "    blueprint_compat = ${10|true,false|},",
+      "    eternal_compat  = ${11|true,false|},",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${12:card.ability.extra.mult} } }",
+      "    end,",
+      "    calculate = function(self, card, context)",
+      "        if context.joker_main then",
+      "            return {",
+      "                mult = card.ability.extra.mult,",
+      "                message = localize { type = 'variable', key = 'a_mult', vars = { card.ability.extra.mult } }",
+      "            }",
+      "        end",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Consumable (Tarot)": {
+    "prefix": "smods-consumable-tarot",
+    "description": "SMODS.Consumable of set 'Tarot' with can_use and use",
+    "body": [
+      "SMODS.Consumable {",
+      "    key = '${1:my_tarot}',",
+      "    set = 'Tarot',",
+      "    loc_txt = {",
+      "        name = '${2:Tarot Name}',",
+      "        text = {",
+      "            '${3:Does a thing}'",
+      "        }",
+      "    },",
+      "    config = { extra = { ${4:amount = 1} } },",
+      "    atlas = '${5:consumables}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    cost = ${8:3},",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${9:card.ability.extra.amount} } }",
+      "    end,",
+      "    can_use = function(self, card)",
+      "        return ${10:true}",
+      "    end,",
+      "    use = function(self, card, area, copier)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Consumable (Planet)": {
+    "prefix": "smods-consumable-planet",
+    "description": "SMODS.Consumable of set 'Planet' that upgrades a poker hand",
+    "body": [
+      "SMODS.Consumable {",
+      "    key = '${1:my_planet}',",
+      "    set = 'Planet',",
+      "    loc_txt = {",
+      "        name = '${2:Planet Name}',",
+      "        text = {",
+      "            '{C:attention}Levels up{} {C:legendary,E:1}#1#{}',",
+      "            'Currently level {C:mult}#2#{}'",
+      "        }",
+      "    },",
+      "    config = { hand_type = '${3:High Card}' },",
+      "    atlas = '${4:consumables}',",
+      "    pos = { x = ${5:0}, y = ${6:0} },",
+      "    cost = 3,",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { G.GAME.hands[self.config.hand_type].level } }",
+      "    end,",
+      "    use = function(self, card, area, copier)",
+      "        update_hand_text({ sound = 'button', volume = 0.7, pitch = 0.8, delay = 0.3 }, {",
+      "            handname = localize(self.config.hand_type, 'poker_hands'),",
+      "            chips = G.GAME.hands[self.config.hand_type].chips,",
+      "            mult = G.GAME.hands[self.config.hand_type].mult,",
+      "            level = G.GAME.hands[self.config.hand_type].level",
+      "        })",
+      "        level_up_hand(card, self.config.hand_type)",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Consumable (Spectral)": {
+    "prefix": "smods-consumable-spectral",
+    "body": [
+      "SMODS.Consumable {",
+      "    key = '${1:my_spectral}',",
+      "    set = 'Spectral',",
+      "    loc_txt = {",
+      "        name = '${2:Spectral Name}',",
+      "        text = { '${3:Does a spooky thing}' }",
+      "    },",
+      "    config = {},",
+      "    atlas = '${4:consumables}',",
+      "    pos = { x = ${5:0}, y = ${6:0} },",
+      "    cost = 4,",
+      "    use = function(self, card, area, copier)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Atlas": {
+    "prefix": "smods-atlas",
+    "description": "Sprite sheet definition",
+    "body": [
+      "SMODS.Atlas {",
+      "    key = '${1:jokers}',",
+      "    path = '${2:Jokers.png}',",
+      "    px = ${3:71},",
+      "    py = ${4:95}${5:,",
+      "    frames = ${6:1}}",
+      "}"
+    ]
+  },
+
+  "SMODS Animated Atlas": {
+    "prefix": "smods-atlas-animated",
+    "body": [
+      "SMODS.Atlas {",
+      "    key = '${1:animated_joker}',",
+      "    path = '${2:animated.png}',",
+      "    px = ${3:71},",
+      "    py = ${4:95},",
+      "    atlas_table = 'ANIMATION_ATLAS',",
+      "    frames = ${5:5},",
+      "    fps = ${6:10}",
+      "}"
+    ]
+  },
+
+  "SMODS Back (Deck)": {
+    "prefix": "smods-back",
+    "description": "Custom deck (back)",
+    "body": [
+      "SMODS.Back {",
+      "    key = '${1:my_deck}',",
+      "    loc_txt = {",
+      "        name = '${2:My Deck}',",
+      "        text = {",
+      "            '${3:Start with {C:attention}+#1#{} hand size}'",
+      "        }",
+      "    },",
+      "    config = { ${4:h_size = 1} },",
+      "    atlas = '${5:decks}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${8:self.config.h_size} } }",
+      "    end,",
+      "    apply = function(self, back)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Voucher": {
+    "prefix": "smods-voucher",
+    "body": [
+      "SMODS.Voucher {",
+      "    key = '${1:my_voucher}',",
+      "    loc_txt = {",
+      "        name = '${2:Voucher Name}',",
+      "        text = { '${3:Does a thing}' }",
+      "    },",
+      "    config = { extra = { ${4:amount = 1} } },",
+      "    atlas = '${5:vouchers}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    cost = ${8:10},",
+      "    unlocked = true,",
+      "    discovered = false,",
+      "    available = true,",
+      "    requires = { $9 },",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${10:card.ability.extra.amount} } }",
+      "    end,",
+      "    redeem = function(self, card)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Booster": {
+    "prefix": "smods-booster",
+    "body": [
+      "SMODS.Booster {",
+      "    key = '${1:my_pack}',",
+      "    loc_txt = {",
+      "        name = '${2:Pack Name}',",
+      "        text = {",
+      "            'Choose {C:attention}#1#{} of up to',",
+      "            '{C:attention}#2#{} cards'",
+      "        },",
+      "        group_name = '${3:Standard Pack}'",
+      "    },",
+      "    config = { extra = ${4:3}, choose = ${5:1} },",
+      "    atlas = '${6:boosters}',",
+      "    pos = { x = ${7:0}, y = ${8:0} },",
+      "    cost = ${9:4},",
+      "    weight = ${10:1},",
+      "    draw_hand = true,",
+      "    kind = '${11:Standard}',",
+      "    create_card = function(self, card)",
+      "        return create_card('Base', G.pack_cards, nil, nil, true, true, nil, '${1:my_pack}')",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Edition": {
+    "prefix": "smods-edition",
+    "body": [
+      "SMODS.Edition {",
+      "    key = '${1:my_edition}',",
+      "    loc_txt = {",
+      "        name = '${2:Edition Name}',",
+      "        label = '${3:Edition}',",
+      "        text = { '${4:{C:mult}+#1#{} Mult}' }",
+      "    },",
+      "    config = { ${5:mult = 10} },",
+      "    shader = '${6:my_edition}',",
+      "    in_shop = true,",
+      "    weight = ${7:5},",
+      "    extra_cost = ${8:3},",
+      "    apply_to_float = false,",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${9:self.config.mult} } }",
+      "    end,",
+      "    calculate = function(self, card, context)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Enhancement": {
+    "prefix": "smods-enhancement",
+    "body": [
+      "SMODS.Enhancement {",
+      "    key = '${1:my_enhancement}',",
+      "    loc_txt = {",
+      "        name = '${2:Enhancement Name}',",
+      "        text = { '${3:{C:chips}+#1#{} chips}' }",
+      "    },",
+      "    config = { ${4:bonus = 30} },",
+      "    atlas = '${5:enhancements}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    loc_vars = function(self, info_queue, card)",
+      "        return { vars = { ${8:card.ability.bonus} } }",
+      "    end,",
+      "    calculate = function(self, card, context, effect)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Seal": {
+    "prefix": "smods-seal",
+    "body": [
+      "SMODS.Seal {",
+      "    key = '${1:my_seal}',",
+      "    loc_txt = {",
+      "        name = '${2:Seal Name}',",
+      "        label = '${2:Seal Name} Seal',",
+      "        text = { '${3:Does a thing}' }",
+      "    },",
+      "    badge_colour = HEX('${4:FFFFFF}'),",
+      "    atlas = '${5:seals}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    calculate = function(self, card, context)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Blind": {
+    "prefix": "smods-blind",
+    "body": [
+      "SMODS.Blind {",
+      "    key = '${1:my_blind}',",
+      "    loc_txt = {",
+      "        name = '${2:Blind Name}',",
+      "        text = { '${3:Does a mean thing}' }",
+      "    },",
+      "    dollars = ${4:5},",
+      "    mult = ${5:2},",
+      "    boss = { min = ${6:1}, max = ${7:10} },",
+      "    boss_colour = HEX('${8:FF0000}'),",
+      "    atlas = '${9:blinds}',",
+      "    pos = { x = ${10:0}, y = ${11:0} },",
+      "    set_blind = function(self)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Tag": {
+    "prefix": "smods-tag",
+    "body": [
+      "SMODS.Tag {",
+      "    key = '${1:my_tag}',",
+      "    loc_txt = {",
+      "        name = '${2:Tag Name}',",
+      "        text = { '${3:Does a helpful thing}' }",
+      "    },",
+      "    config = { type = '${4:store_joker_create}' },",
+      "    atlas = '${5:tags}',",
+      "    pos = { x = ${6:0}, y = ${7:0} },",
+      "    apply = function(self, tag, context)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Rarity": {
+    "prefix": "smods-rarity",
+    "body": [
+      "SMODS.Rarity {",
+      "    key = '${1:my_rarity}',",
+      "    loc_txt = { name = '${2:My Rarity}' },",
+      "    default_weight = ${3:0.1},",
+      "    badge_colour = HEX('${4:FFFFFF}')",
+      "}"
+    ]
+  },
+
+  "SMODS Rank": {
+    "prefix": "smods-rank",
+    "body": [
+      "SMODS.Rank {",
+      "    key = '${1:my_rank}',",
+      "    card_key = '${2:MR}',",
+      "    pos = { x = ${3:0} },",
+      "    nominal = ${4:11},",
+      "    face = ${5|false,true|},",
+      "    strength_effect = { fixed = ${4:11}, ignore = false, random = false },",
+      "    next = { ${6:'Jack'} },",
+      "    shorthand = '${7:MR}',",
+      "    suit_map = { Hearts = 0, Diamonds = 1, Spades = 2, Clubs = 3 }",
+      "}"
+    ]
+  },
+
+  "SMODS Suit": {
+    "prefix": "smods-suit",
+    "body": [
+      "SMODS.Suit {",
+      "    key = '${1:MySuit}',",
+      "    card_key = '${2:S}',",
+      "    pos = { y = ${3:0} },",
+      "    ui_pos = { x = ${4:0}, y = ${5:0} },",
+      "    hc_colour = HEX('${6:FF00FF}'),",
+      "    lc_colour = HEX('${7:CC00CC}')",
+      "}"
+    ]
+  },
+
+  "SMODS Sound": {
+    "prefix": "smods-sound",
+    "body": [
+      "SMODS.Sound {",
+      "    key = '${1:my_sound}',",
+      "    path = '${2:my_sound.ogg}',",
+      "    volume = ${3:1},",
+      "    pitch = ${4:1}",
+      "}"
+    ]
+  },
+
+  "SMODS Keybind": {
+    "prefix": "smods-keybind",
+    "body": [
+      "SMODS.Keybind {",
+      "    key_pressed = '${1:r}',",
+      "    held_keys = { ${2:'lshift'} },",
+      "    action = function(self)",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Stake": {
+    "prefix": "smods-stake",
+    "body": [
+      "SMODS.Stake {",
+      "    key = '${1:my_stake}',",
+      "    loc_txt = {",
+      "        name = '${2:Stake Name}',",
+      "        text = { '${3:Applies to all previous stakes}' }",
+      "    },",
+      "    applied_stakes = { ${4:'gold'} },",
+      "    colour = HEX('${5:FFFFFF}'),",
+      "    atlas = '${6:stakes}',",
+      "    pos = { x = ${7:0}, y = ${8:0} },",
+      "    modifiers = function()",
+      "        $0",
+      "    end",
+      "}"
+    ]
+  },
+
+  "SMODS Shader": {
+    "prefix": "smods-shader",
+    "body": [
+      "SMODS.Shader {",
+      "    key = '${1:my_shader}',",
+      "    path = '${2:my_shader.fs}'",
+      "}"
+    ]
+  },
+
+  "SMODS Challenge": {
+    "prefix": "smods-challenge",
+    "body": [
+      "SMODS.Challenge {",
+      "    key = '${1:my_challenge}',",
+      "    loc_txt = { name = '${2:Challenge Name}' },",
+      "    rules = {",
+      "        custom = {},",
+      "        modifiers = {",
+      "            { id = 'dollars',       value = ${3:10} },",
+      "            { id = 'discards',      value = ${4:3} },",
+      "            { id = 'hands',         value = ${5:4} },",
+      "            { id = 'reroll_cost',   value = ${6:5} },",
+      "            { id = 'joker_slots',   value = ${7:5} },",
+      "            { id = 'hand_size',     value = ${8:8} }",
+      "        }",
+      "    },",
+      "    jokers = { { id = 'j_joker', edition = 'negative', eternal = true } },",
+      "    consumeables = {},",
+      "    vouchers = {},",
+      "    deck = { type = 'Challenge Deck' },",
+      "    restrictions = { banned_cards = {}, banned_tags = {}, banned_other = {} }",
+      "}"
+    ]
+  },
+
+  "SMODS take_ownership": {
+    "prefix": "smods-takeover",
+    "description": "Modify an existing game object",
+    "body": [
+      "SMODS.${1|Joker,Consumable,Voucher,Blind,Back|}:take_ownership('${2:joker_key}', {",
+      "    $0",
+      "})"
+    ]
+  },
+
+  "SMODS load_file": {
+    "prefix": "smods-load",
+    "body": "SMODS.load_file('${1:path/to/file.lua}')()"
+  },
+
+  "Calculate: scoring joker main": {
+    "prefix": "smods-calc-main",
+    "body": [
+      "if context.joker_main then",
+      "    return {",
+      "        ${1|mult,chips,x_mult,dollars,Xchips|} = ${2:card.ability.extra.value}",
+      "    }",
+      "end",
+      "$0"
+    ]
+  },
+
+  "Calculate: individual card": {
+    "prefix": "smods-calc-individual",
+    "body": [
+      "if context.individual and context.cardarea == G.play and not context.blueprint then",
+      "    $0",
+      "end"
+    ]
+  },
+
+  "Calculate: end of round": {
+    "prefix": "smods-calc-eor",
+    "body": [
+      "if context.end_of_round and context.main_eval and not context.blueprint then",
+      "    $0",
+      "end"
+    ]
+  },
+
+  "Calculate: before scoring": {
+    "prefix": "smods-calc-before",
+    "body": [
+      "if context.before and not context.blueprint then",
+      "    $0",
+      "end"
+    ]
+  },
+
+  "Calculate: card destroyed": {
+    "prefix": "smods-calc-destroyed",
+    "body": [
+      "if context.destroying_card then",
+      "    $0",
+      "end"
+    ]
+  },
+
+  "Event: G.E_MANAGER:add_event": {
+    "prefix": "smods-event",
+    "body": [
+      "G.E_MANAGER:add_event(Event({",
+      "    trigger = '${1|after,immediate,before|}',",
+      "    delay = ${2:0.4},",
+      "    func = function()",
+      "        $0",
+      "        return true",
+      "    end",
+      "}))"
+    ]
+  },
+
+  "Logging: sendInfoMessage": {
+    "prefix": "smods-log",
+    "body": "sendInfoMessage('${1:message}', '${2:prefix}')"
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "joker_main": {
+    "summary": "Main scoring pass for Jokers.",
+    "description": "Fires once per Joker during the main scoring evaluation. The classic return point for flat `mult`, `chips`, `x_mult`, `dollars` payouts.",
+    "example": "if context.joker_main then\n    return { mult = card.ability.extra.mult }\nend"
+  },
+  "main_scoring": {
+    "summary": "Scoring pass for played cards / enhancements / seals / editions.",
+    "description": "Active while a card, enhancement, seal, or edition is being scored as part of the played hand. Use this for per-card effects rather than per-joker effects.",
+    "example": "if context.main_scoring then\n    return { chips = card.ability.bonus }\nend"
+  },
+  "individual": {
+    "summary": "Per-card scoring callback.",
+    "description": "Fires once for each scored card; `context.other_card` is the card being scored. Use `context.cardarea == G.play` for cards in the hand vs. `G.jokers` for Jokers.",
+    "example": "if context.individual and context.cardarea == G.play and not context.blueprint then\n    -- inspect context.other_card\nend"
+  },
+  "repetition": {
+    "summary": "Card-retrigger evaluation.",
+    "description": "Return `{ repetitions = N }` to retrigger the current card N additional times.",
+    "example": "if context.repetition and context.cardarea == G.play then\n    return { repetitions = 1 }\nend"
+  },
+  "before": {
+    "summary": "Before scoring begins.",
+    "description": "Before any scoring runs for the played hand. Good for level-ups, setup effects, or previewing the hand.",
+    "example": "if context.before and not context.blueprint then end"
+  },
+  "after": {
+    "summary": "After scoring completes.",
+    "description": "Runs once after all scoring has finished for the hand, before the hand is discarded.",
+    "example": "if context.after and not context.blueprint then end"
+  },
+  "end_of_round": {
+    "summary": "End-of-round payout.",
+    "description": "Fires at the end of the round (after a blind is beaten), commonly paired with `context.main_eval` to avoid duplicate triggers.",
+    "example": "if context.end_of_round and context.main_eval and not context.blueprint then end"
+  },
+  "main_eval": {
+    "summary": "Marker on the primary evaluation pass.",
+    "description": "Set to true during the top-level calculation pass; use it to deduplicate effects that SMODS would otherwise evaluate multiple times."
+  },
+  "blueprint": {
+    "summary": "Copy evaluation from a Blueprint/Brainstorm joker.",
+    "description": "Truthy when the current evaluation is a copy triggered by Blueprint or Brainstorm. Gate effects that shouldn't be copied with `not context.blueprint`."
+  },
+  "blueprint_card": {
+    "summary": "The blueprint source card.",
+    "description": "The copying Joker (Blueprint/Brainstorm) when `context.blueprint` is set."
+  },
+  "other_card": {
+    "summary": "The other card involved in the current evaluation.",
+    "description": "In `individual`/`repetition`/`post_trigger` contexts, the currently-evaluated playing card. In other contexts, a related card provided by the caller."
+  },
+  "other_joker": {
+    "summary": "The Joker whose calculation triggered this one.",
+    "description": "Typically set in Blueprint-like chains and retrigger passes."
+  },
+  "cardarea": {
+    "summary": "Which area is being evaluated.",
+    "description": "One of `G.play` (played hand), `G.hand`, `G.jokers`, or `'unscored'`. Use to filter `individual` callbacks to specific zones."
+  },
+  "scoring_hand": {
+    "summary": "Cards that count as scoring for this hand.",
+    "description": "Array of card objects that are part of the scoring hand (after discards)."
+  },
+  "full_hand": {
+    "summary": "All cards in the played hand.",
+    "description": "Array including both scoring and non-scoring played cards."
+  },
+  "poker_hands": {
+    "summary": "Poker hand table for the played hand.",
+    "description": "Map of `hand_name -> cards[]` describing which poker-hand categories the played hand satisfies."
+  },
+  "scoring_name": {
+    "summary": "Canonical name of the scoring poker hand.",
+    "description": "String like `'Flush'`, `'Pair'`, etc."
+  },
+  "playing_card_added": {
+    "summary": "New playing card added to the deck.",
+    "description": "Set when cards are appended to `G.playing_cards`. Inspect `context.cards` for the list."
+  },
+  "hand_drawn": {
+    "summary": "Cards have just been drawn to the hand.",
+    "description": "Fires once per draw step. `context.cards` contains the drawn cards."
+  },
+  "using_consumeable": {
+    "summary": "A consumable card is being used.",
+    "description": "Return `{ message = ... }` or mutate state. `context.consumeable` is the used card."
+  },
+  "buying_card": {
+    "summary": "A card is about to be purchased.",
+    "description": "`context.card` is the card being bought."
+  },
+  "selling_card": {
+    "summary": "A Joker is being sold.",
+    "description": "`context.card` is the card being sold. Fires before the sell resolves, so field mutations still apply."
+  },
+  "selling_self": {
+    "summary": "This Joker is being sold.",
+    "description": "Use when a Joker wants to emit a final effect as it leaves play."
+  },
+  "destroying_card": {
+    "summary": "A card is about to be destroyed.",
+    "description": "Return a truthy value to confirm the destruction, `false`/`nil` to spare it."
+  },
+  "remove_playing_cards": {
+    "summary": "Playing cards being removed from the deck.",
+    "description": "`context.removed` is the array of removed cards."
+  },
+  "setting_blind": {
+    "summary": "Blind selected, about to start the round.",
+    "description": "`context.blind` references the blind object."
+  },
+  "reroll_shop": {
+    "summary": "Shop has been rerolled.",
+    "description": "No payload; just a signal to react (e.g., discount tags)."
+  },
+  "skip_blind": {
+    "summary": "A blind has been skipped.",
+    "description": "`context.blind` is the skipped blind."
+  },
+  "first_hand_drawn": {
+    "summary": "The very first hand of the round.",
+    "description": "Fires immediately after the opening hand is drawn."
+  },
+  "debuffed_playing_card": {
+    "summary": "A playing card has been debuffed.",
+    "description": "`context.other_card` is the newly-debuffed card."
+  },
+  "setting_ability": {
+    "summary": "Card ability being configured.",
+    "description": "Fires while a card's `ability` table is being initialized."
+  },
+  "modify_probability": {
+    "summary": "Odds-adjusting pass.",
+    "description": "Use to multiply or override probability numerators/denominators. Return `{ numerator, denominator }`."
+  },
+  "fix_probability": {
+    "summary": "Locks in the probability for this roll.",
+    "description": "Use to clamp a chance to always succeed or always fail for this evaluation."
+  },
+  "check_enhancement": {
+    "summary": "Enhancement-lookup pass.",
+    "description": "Short-lived; gate stateful side effects behind `not context.check_enhancement`."
+  },
+  "extra_enhancement": {
+    "summary": "Extra enhancement calculation pass.",
+    "description": "Set while an extra enhancement is being evaluated — avoid feedback loops by gating with `not context.extra_enhancement`."
+  },
+  "retrigger_joker": {
+    "summary": "This evaluation is a retrigger copy.",
+    "description": "Truthy when re-running a Joker from a retrigger effect."
+  },
+  "post_trigger": {
+    "summary": "Post-trigger pass.",
+    "description": "Fires after another Joker's effect resolves so jokers can react to each other."
+  },
+  "forcetrigger": {
+    "summary": "Forces an evaluation pass.",
+    "description": "Used by a handful of SMODS internals to bypass normal eligibility checks."
+  },
+  "debuff_card": {
+    "summary": "Debuff-check callback.",
+    "description": "Return `true` to debuff `context.card`. Use in `Mod.set_debuff` or on objects exposing it."
+  },
+  "open_booster": {
+    "summary": "Booster pack opened.",
+    "description": "`context.card` is the pack being opened."
+  },
+  "beat_boss": {
+    "summary": "Boss blind has been defeated.",
+    "description": "Set after the final scoring of a boss round resolves."
+  },
+  "game_over": {
+    "summary": "The run is ending.",
+    "description": "Return `{ saved = true }` from a Joker to prevent the loss (e.g., Mr. Bones)."
+  },
+  "discarded_cards": {
+    "summary": "Cards were discarded.",
+    "description": "`context.other_card`/`context.cards` list the discarded cards."
+  },
+  "pre_discard": {
+    "summary": "Before a discard resolves.",
+    "description": "Hook to mutate the cards before they leave the hand."
+  },
+  "creating_shop_card": {
+    "summary": "Shop card generation hook.",
+    "description": "Modify or veto the card being added to the shop; inspect `context.card`."
+  }
+}

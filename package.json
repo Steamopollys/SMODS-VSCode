@@ -1,0 +1,362 @@
+{
+  "name": "smods-tools",
+  "displayName": "Smods Tools",
+  "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
+  "version": "0.1.0",
+  "publisher": "Steamo",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USER/smods-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USER/smods-tools/issues"
+  },
+  "homepage": "https://github.com/YOUR_USER/smods-tools#readme",
+  "keywords": [
+    "balatro",
+    "smods",
+    "steamodded",
+    "lua",
+    "modding",
+    "lovely"
+  ],
+  "categories": [
+    "Snippets",
+    "Linters",
+    "Other"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:lua",
+    "onLanguage:lovely-patch",
+    "workspaceContains:**/*.lovely.toml",
+    "workspaceContains:**/lovely/*.toml",
+    "workspaceContains:**/main.lua"
+  ],
+  "extensionDependencies": [
+    "sumneko.lua"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "smods.newMod",
+        "title": "Smods: New Mod…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newJoker",
+        "title": "Smods: New Joker…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newConsumable",
+        "title": "Smods: New Consumable…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.launchBalatro",
+        "title": "Smods: Launch Balatro",
+        "category": "Smods",
+        "icon": "$(play)"
+      },
+      {
+        "command": "smods.launchSolo",
+        "title": "Smods: Launch Balatro (Solo — disable other mods)",
+        "category": "Smods",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "smods.stopBalatro",
+        "title": "Smods: Stop Balatro",
+        "category": "Smods",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "smods.toggleBalatro",
+        "title": "Smods: Launch or Stop Balatro",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.reloadBalatro",
+        "title": "Smods: Reload Mods (Alt+F5)",
+        "category": "Smods",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "smods.showLog",
+        "title": "Smods: Tail Balatro Log",
+        "category": "Smods",
+        "icon": "$(output)"
+      },
+      {
+        "command": "smods.openModsFolder",
+        "title": "Smods: Open Mods Folder",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.validateManifest",
+        "title": "Smods: Validate Mod Manifest",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.toggleAutoReload",
+        "title": "Smods: Toggle Auto-Reload on Save",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.bumpVersion",
+        "title": "Smods: Bump Mod Version…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.packageMod",
+        "title": "Smods: Package Mod as Zip…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.openApiReference",
+        "title": "Smods: Open SMODS API Reference…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newVoucher",
+        "title": "Smods: New Voucher…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newBack",
+        "title": "Smods: New Deck (Back)…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newEdition",
+        "title": "Smods: New Edition…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newSeal",
+        "title": "Smods: New Seal…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newBlind",
+        "title": "Smods: New Blind…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newTag",
+        "title": "Smods: New Tag…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newBooster",
+        "title": "Smods: New Booster Pack…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newEnhancement",
+        "title": "Smods: New Enhancement…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newShader",
+        "title": "Smods: New Shader…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newSound",
+        "title": "Smods: New Sound…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.newChallenge",
+        "title": "Smods: New Challenge…",
+        "category": "Smods"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "smods.newMod",
+          "when": "explorerResourceIsFolder",
+          "group": "smods@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "smods.reloadBalatro",
+          "when": "smods.balatroRunning"
+        },
+        {
+          "command": "smods.stopBalatro",
+          "when": "smods.balatroRunning"
+        },
+        {
+          "command": "smods.launchBalatro",
+          "when": "!smods.balatroRunning"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "smods.launchBalatro",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b"
+      },
+      {
+        "command": "smods.reloadBalatro",
+        "key": "alt+f5",
+        "when": "smods.balatroRunning"
+      },
+      {
+        "command": "smods.showLog",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lovely-patch",
+        "aliases": ["Lovely Patch", "lovely-patch"],
+        "filenamePatterns": ["**/lovely/*.toml", "**/*.lovely.toml"],
+        "icon": {
+          "light": "./icons/lovely-patch.svg",
+          "dark": "./icons/lovely-patch.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lovely-patch",
+        "scopeName": "source.lovely-patch",
+        "path": "./syntaxes/lovely-patch.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.lua": "lua",
+          "meta.embedded.inline.lua": "lua"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "lua",
+        "path": "./snippets/smods.code-snippets"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          "*.json"
+        ],
+        "url": "./schemas/smods-manifest.schema.json"
+      }
+    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "smodsPanel",
+          "title": "Balatro",
+          "icon": "$(terminal)"
+        }
+      ]
+    },
+    "views": {
+      "smodsPanel": [
+        {
+          "id": "smodsLogView",
+          "type": "webview",
+          "name": "Balatro Log",
+          "contextualTitle": "Balatro"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Smods Tools",
+      "properties": {
+        "smods.balatroExecutable": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to Balatro.exe (Windows) or Balatro binary. Leave empty to auto-detect via Steam."
+        },
+        "smods.modsFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the Balatro Mods folder. Leave empty to use %AppData%/Balatro/Mods (Windows) or platform equivalent."
+        },
+        "smods.logFile": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to Lovely log file. Leave empty to use the default under %AppData%/Balatro/."
+        },
+        "smods.autoAttachLuaTypes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically register SMODS type definitions with the Lua Language Server in Smods workspaces."
+        },
+        "smods.defaultAuthor": {
+          "type": "string",
+          "default": "",
+          "description": "Default author name used when scaffolding new mods."
+        },
+        "smods.symlinkModOnLaunch": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, symlinks detected mod roots into the Balatro Mods folder before launching or reloading, and removes them when Balatro exits or VS Code closes. On Windows, requires Developer Mode or administrator privileges. Do not enable if your workspace is already inside the Balatro Mods folder."
+        },
+        "smods.autoReload": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically send Alt+F5 to Balatro when a .lua/.json/.toml file in a detected mod root is saved."
+        },
+        "smods.autoReloadDelay": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "description": "Debounce window (ms) between the last file change and the auto-reload keystroke."
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "balatro-lua",
+        "owner": "smods",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^.*?file '([^']+):(\\d+)'.*$",
+          "file": 1,
+          "line": 2,
+          "message": 0
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "vsix": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vscode/vsce": "^3.0.0",
+    "eslint": "^9.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.0.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
