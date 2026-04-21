@@ -89,7 +89,6 @@ async function writeModScaffold(
   const modDir = path.join(targetRoot, input.id);
   await fs.mkdir(modDir, { recursive: true });
 
-  // Manifest (<id>.json as per Smods docs)
   const installedSmods = getInstalledSmodsVersion() ?? '1.0.0';
   const manifest = {
     id: input.id,
@@ -110,7 +109,6 @@ async function writeModScaffold(
     JSON.stringify(manifest, null, 2) + '\n'
   );
 
-  // main.lua
   const mainLua = `-- ${input.name}
 -- Entry point loaded by Smods.
 
@@ -138,7 +136,6 @@ sendInfoMessage('${input.name} loaded.', '${input.prefix}')
 `;
   await fs.writeFile(path.join(modDir, 'main.lua'), mainLua);
 
-  // localization
   if (input.includeLocalization) {
     const locDir = path.join(modDir, 'localization');
     await fs.mkdir(locDir, { recursive: true });
@@ -222,13 +219,11 @@ match_indent = true
     );
   }
 
-  // .gitignore — helpful default
   await fs.writeFile(
     path.join(modDir, '.gitignore'),
     `*.log\n.DS_Store\nThumbs.db\n`
   );
 
-  // README
   await fs.writeFile(
     path.join(modDir, 'README.md'),
     `# ${input.name}\n\n${input.description}\n\n## Install\n\nCopy this folder into your Balatro \`Mods/\` directory.\n`
@@ -242,11 +237,28 @@ type ObjectKind =
   | 'blind' | 'tag' | 'booster' | 'enhancement' | 'shader' | 'sound'
   | 'challenge';
 
+interface ConfigField {
+  key: string;
+  label: string;
+  default: string;
+  choices?: string[];
+  validate?: (v: string) => string | null;
+}
+
+/** Fields map contains only the keys the user chose to customise. */
+type FieldValues = Record<string, string>;
+
+/** Emit a line only when the field was customised, otherwise return ''. */
+function opt(val: string | undefined, line: string): string {
+  return val !== undefined ? line + '\n' : '';
+}
+
 interface ObjectSpec {
   folder: string;
   prompt: string;
   placeholder: string;
-  render(prefix: string, key: string, name: string): string;
+  fields: ConfigField[];
+  render(prefix: string, key: string, name: string, fields: FieldValues): string;
 }
 
 const OBJECT_SPECS: Record<ObjectKind, ObjectSpec> = {
@@ -254,271 +266,335 @@ const OBJECT_SPECS: Record<ObjectKind, ObjectSpec> = {
     folder: 'jokers',
     prompt: 'Display name for the new Joker',
     placeholder: 'Lucky Cat',
-    render: (prefix, key, name) => `SMODS.Joker {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = {
-            '{C:mult}+#1#{} Mult'
-        }
-    },
-    config = { extra = { mult = 4 } },
-    rarity = 1,
-    atlas = '${prefix}_jokers',
-    pos = { x = 0, y = 0 },
-    cost = 4,
-    blueprint_compat = true,
-    eternal_compat  = true,
-    loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.extra.mult } }
-    end,
-    calculate = function(self, card, context)
-        if context.joker_main then
-            return {
-                mult = card.ability.extra.mult,
-                message = localize { type = 'variable', key = 'a_mult', vars = { card.ability.extra.mult } }
-            }
-        end
-    end
-}
-`
+    fields: [
+      { key: 'mult',             label: 'Starting mult',        default: '4' },
+      { key: 'rarity',           label: 'Rarity (1–4)',         default: '1', choices: ['1', '2', '3', '4'] },
+      { key: 'cost',             label: 'Shop cost',            default: '4' },
+      { key: 'blueprint_compat', label: 'Blueprint compatible', default: 'true',  choices: ['true', 'false'] },
+      { key: 'eternal_compat',   label: 'Eternal compatible',   default: 'true',  choices: ['true', 'false'] },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Joker {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = {`,
+      `            '{C:mult}+#1#{} Mult'`,
+      `        }`,
+      `    },`,
+      opt(f.mult,             `    config = { extra = { mult = ${f.mult} } },`),
+      opt(f.rarity,           `    rarity = ${f.rarity},`),
+      `    atlas = '${prefix}_jokers',`,
+      `    pos = { x = 0, y = 0 },`,
+      opt(f.cost,             `    cost = ${f.cost},`),
+      opt(f.blueprint_compat, `    blueprint_compat = ${f.blueprint_compat},`),
+      opt(f.eternal_compat,   `    eternal_compat  = ${f.eternal_compat},`),
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { card.ability.extra.mult } }`,
+      `    end,`,
+      `    calculate = function(self, card, context)`,
+      `        if context.joker_main then`,
+      `            return {`,
+      `                mult = card.ability.extra.mult,`,
+      `                message = localize { type = 'variable', key = 'a_mult', vars = { card.ability.extra.mult } }`,
+      `            }`,
+      `        end`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   consumable: {
     folder: 'consumables',
     prompt: 'Display name for the new Consumable',
     placeholder: 'Minor Arcana',
-    render: (prefix, key, name) => `SMODS.Consumable {
-    key = '${key}',
-    set = 'Tarot',
-    loc_txt = {
-        name = '${name}',
-        text = {
-            'Creates {C:attention}#1#{} {C:tarot}Tarot{} card',
-            '{C:inactive}(Must have room)'
-        }
-    },
-    config = { extra = { amount = 1 } },
-    atlas = '${prefix}_consumables',
-    pos = { x = 0, y = 0 },
-    cost = 3,
-    loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.extra.amount } }
-    end,
-    can_use = function(self, card)
-        return #G.consumeables.cards + card.ability.extra.amount <= G.consumeables.config.card_limit
-    end,
-    use = function(self, card, area, copier)
-        for i = 1, card.ability.extra.amount do
-            G.E_MANAGER:add_event(Event({
-                trigger = 'after', delay = 0.4,
-                func = function()
-                    SMODS.add_card { set = 'Tarot' }
-                    return true
-                end
-            }))
-        end
-    end
-}
-`
+    fields: [
+      { key: 'set',    label: 'Consumable set', default: 'Tarot', choices: ['Tarot', 'Planet', 'Spectral'] },
+      { key: 'cost',   label: 'Shop cost',      default: '3' },
+      { key: 'amount', label: 'Card amount',    default: '1' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Consumable {`,
+      `    key = '${key}',`,
+      opt(f.set,    `    set = '${f.set}',`),
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = {`,
+      `            'Creates {C:attention}#1#{} {C:tarot}Tarot{} card',`,
+      `            '{C:inactive}(Must have room)'`,
+      `        }`,
+      `    },`,
+      opt(f.amount, `    config = { extra = { amount = ${f.amount} } },`),
+      `    atlas = '${prefix}_consumables',`,
+      `    pos = { x = 0, y = 0 },`,
+      opt(f.cost,   `    cost = ${f.cost},`),
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { card.ability.extra.amount } }`,
+      `    end,`,
+      `    can_use = function(self, card)`,
+      `        return #G.consumeables.cards + card.ability.extra.amount <= G.consumeables.config.card_limit`,
+      `    end,`,
+      `    use = function(self, card, area, copier)`,
+      `        for i = 1, card.ability.extra.amount do`,
+      `            G.E_MANAGER:add_event(Event({`,
+      `                trigger = 'after', delay = 0.4,`,
+      `                func = function()`,
+      `                    SMODS.add_card { set = 'Tarot' }`,
+      `                    return true`,
+      `                end`,
+      `            }))`,
+      `        end`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   voucher: {
     folder: 'vouchers',
     prompt: 'Display name for the new Voucher',
     placeholder: 'Clearance Sale',
-    render: (prefix, key, name) => `SMODS.Voucher {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = { 'Does a thing' }
-    },
-    config = { extra = { amount = 1 } },
-    atlas = '${prefix}_vouchers',
-    pos = { x = 0, y = 0 },
-    cost = 10,
-    unlocked = true,
-    discovered = false,
-    available = true,
-    requires = {},
-    loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.extra.amount } }
-    end,
-    redeem = function(self, card)
-        -- Apply voucher effect here.
-    end
-}
-`
+    fields: [
+      { key: 'cost',   label: 'Shop cost', default: '10' },
+      { key: 'amount', label: 'Amount',    default: '1' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Voucher {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = { 'Does a thing' }`,
+      `    },`,
+      opt(f.amount, `    config = { extra = { amount = ${f.amount} } },`),
+      `    atlas = '${prefix}_vouchers',`,
+      `    pos = { x = 0, y = 0 },`,
+      opt(f.cost,   `    cost = ${f.cost},`),
+      `    unlocked = true,`,
+      `    discovered = false,`,
+      `    available = true,`,
+      `    requires = {},`,
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { card.ability.extra.amount } }`,
+      `    end,`,
+      `    redeem = function(self, card)`,
+      `        -- Apply voucher effect here.`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   back: {
     folder: 'backs',
     prompt: 'Display name for the new Deck (Back)',
     placeholder: 'Ancient Deck',
-    render: (prefix, key, name) => `SMODS.Back {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = {
-            'Start with {C:attention}+#1#{} hand size'
-        }
-    },
-    config = { h_size = 1 },
-    atlas = '${prefix}_decks',
-    pos = { x = 0, y = 0 },
-    loc_vars = function(self, info_queue, card)
-        return { vars = { self.config.h_size } }
-    end,
-    apply = function(self, back)
-        -- Apply deck effect here.
-    end
-}
-`
+    fields: [
+      { key: 'h_size', label: 'Starting hand size bonus', default: '1' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Back {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = {`,
+      `            'Start with {C:attention}+#1#{} hand size'`,
+      `        }`,
+      `    },`,
+      opt(f.h_size, `    config = { h_size = ${f.h_size} },`),
+      `    atlas = '${prefix}_decks',`,
+      `    pos = { x = 0, y = 0 },`,
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { self.config.h_size } }`,
+      `    end,`,
+      `    apply = function(self, back)`,
+      `        -- Apply deck effect here.`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   edition: {
     folder: 'editions',
     prompt: 'Display name for the new Edition',
     placeholder: 'Glowing',
-    render: (prefix, key, name) => `SMODS.Edition {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        label = '${name}',
-        text = { '{C:mult}+#1#{} Mult' }
-    },
-    config = { mult = 10 },
-    shader = '${prefix}_${key}',
-    in_shop = true,
-    weight = 5,
-    extra_cost = 3,
-    apply_to_float = false,
-    loc_vars = function(self, info_queue, card)
-        return { vars = { self.config.mult } }
-    end,
-    calculate = function(self, card, context)
-        if context.main_scoring then
-            return { mult = self.config.mult }
-        end
-    end
-}
-`
+    fields: [
+      { key: 'mult',       label: 'Mult bonus',      default: '10' },
+      { key: 'weight',     label: 'Shop weight',     default: '5' },
+      { key: 'extra_cost', label: 'Extra cost',      default: '3' },
+      { key: 'in_shop',    label: 'Appears in shop', default: 'true', choices: ['true', 'false'] },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Edition {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        label = '${name}',`,
+      `        text = { '{C:mult}+#1#{} Mult' }`,
+      `    },`,
+      opt(f.mult,       `    config = { mult = ${f.mult} },`),
+      `    shader = '${prefix}_${key}',`,
+      opt(f.in_shop,    `    in_shop = ${f.in_shop},`),
+      opt(f.weight,     `    weight = ${f.weight},`),
+      opt(f.extra_cost, `    extra_cost = ${f.extra_cost},`),
+      `    apply_to_float = false,`,
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { self.config.mult } }`,
+      `    end,`,
+      `    calculate = function(self, card, context)`,
+      `        if context.main_scoring then`,
+      `            return { mult = self.config.mult }`,
+      `        end`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   seal: {
     folder: 'seals',
     prompt: 'Display name for the new Seal',
     placeholder: 'Mystery',
-    render: (prefix, key, name) => `SMODS.Seal {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        label = '${name} Seal',
-        text = { 'Does a thing when scored' }
-    },
-    badge_colour = HEX('FFFFFF'),
-    atlas = '${prefix}_seals',
-    pos = { x = 0, y = 0 },
-    calculate = function(self, card, context)
-        if context.main_scoring then
-            return { chips = 10 }
-        end
-    end
-}
-`
+    fields: [
+      { key: 'badge_colour', label: 'Badge colour (hex)', default: 'FFFFFF' },
+      { key: 'chips',        label: 'Chips on score',     default: '10' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Seal {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        label = '${name} Seal',`,
+      `        text = { 'Does a thing when scored' }`,
+      `    },`,
+      opt(f.badge_colour, `    badge_colour = HEX('${f.badge_colour}'),`),
+      `    atlas = '${prefix}_seals',`,
+      `    pos = { x = 0, y = 0 },`,
+      `    calculate = function(self, card, context)`,
+      `        if context.main_scoring then`,
+      opt(f.chips,        `            return { chips = ${f.chips} }`),
+      `        end`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   blind: {
     folder: 'blinds',
     prompt: 'Display name for the new Blind',
     placeholder: 'The Wraith',
-    render: (prefix, key, name) => `SMODS.Blind {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = { 'Does a mean thing' }
-    },
-    dollars = 5,
-    mult = 2,
-    boss = { min = 1, max = 10 },
-    boss_colour = HEX('FF0000'),
-    atlas = '${prefix}_blinds',
-    pos = { x = 0, y = 0 },
-    set_blind = function(self)
-        -- Effect applied when blind is selected.
-    end
-}
-`
+    fields: [
+      { key: 'dollars',     label: 'Dollar reward',     default: '5' },
+      { key: 'mult',        label: 'Score multiplier',  default: '2' },
+      { key: 'boss_min',    label: 'Min ante (boss)',   default: '1' },
+      { key: 'boss_max',    label: 'Max ante (boss)',   default: '10' },
+      { key: 'boss_colour', label: 'Boss colour (hex)', default: 'FF0000' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Blind {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = { 'Does a mean thing' }`,
+      `    },`,
+      opt(f.dollars,     `    dollars = ${f.dollars},`),
+      opt(f.mult,        `    mult = ${f.mult},`),
+      opt((f.boss_min !== undefined || f.boss_max !== undefined)
+        ? `${f.boss_min ?? '1'}/${f.boss_max ?? '10'}` : undefined,
+        `    boss = { min = ${f.boss_min ?? '1'}, max = ${f.boss_max ?? '10'} },`),
+      opt(f.boss_colour, `    boss_colour = HEX('${f.boss_colour}'),`),
+      `    atlas = '${prefix}_blinds',`,
+      `    pos = { x = 0, y = 0 },`,
+      `    set_blind = function(self)`,
+      `        -- Effect applied when blind is selected.`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   tag: {
     folder: 'tags',
     prompt: 'Display name for the new Tag',
     placeholder: 'Lucky Tag',
-    render: (prefix, key, name) => `SMODS.Tag {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = { 'Does a helpful thing' }
-    },
-    config = { type = 'store_joker_create' },
-    atlas = '${prefix}_tags',
-    pos = { x = 0, y = 0 },
-    apply = function(self, tag, context)
-        -- Tag effect here.
-    end
-}
-`
+    fields: [
+      { key: 'config_type', label: 'Config type', default: 'store_joker_create' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Tag {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = { 'Does a helpful thing' }`,
+      `    },`,
+      opt(f.config_type, `    config = { type = '${f.config_type}' },`),
+      `    atlas = '${prefix}_tags',`,
+      `    pos = { x = 0, y = 0 },`,
+      `    apply = function(self, tag, context)`,
+      `        -- Tag effect here.`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   booster: {
     folder: 'boosters',
     prompt: 'Display name for the new Booster Pack',
     placeholder: 'Mega Pack',
-    render: (prefix, key, name) => `SMODS.Booster {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = {
-            'Choose {C:attention}#1#{} of up to',
-            '{C:attention}#2#{} cards'
-        },
-        group_name = 'Standard Pack'
-    },
-    config = { extra = 3, choose = 1 },
-    atlas = '${prefix}_boosters',
-    pos = { x = 0, y = 0 },
-    cost = 4,
-    weight = 1,
-    draw_hand = true,
-    kind = 'Standard',
-    create_card = function(self, card)
-        return create_card('Base', G.pack_cards, nil, nil, true, true, nil, '${key}')
-    end
-}
-`
+    fields: [
+      { key: 'cost',   label: 'Shop cost',     default: '4' },
+      { key: 'weight', label: 'Spawn weight',  default: '1' },
+      { key: 'extra',  label: 'Cards offered', default: '3' },
+      { key: 'choose', label: 'Cards chosen',  default: '1' },
+      { key: 'kind',   label: 'Pack kind',     default: 'Standard', choices: ['Standard', 'Buffoon', 'Celestial', 'Spectral', 'Arcana'] },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Booster {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = {`,
+      `            'Choose {C:attention}#1#{} of up to',`,
+      `            '{C:attention}#2#{} cards'`,
+      `        },`,
+      opt(f.kind,   `        group_name = '${f.kind} Pack'`),
+      `    },`,
+      opt((f.extra !== undefined || f.choose !== undefined)
+        ? `${f.extra ?? '3'}/${f.choose ?? '1'}` : undefined,
+        `    config = { extra = ${f.extra ?? '3'}, choose = ${f.choose ?? '1'} },`),
+      `    atlas = '${prefix}_boosters',`,
+      `    pos = { x = 0, y = 0 },`,
+      opt(f.cost,   `    cost = ${f.cost},`),
+      opt(f.weight, `    weight = ${f.weight},`),
+      `    draw_hand = true,`,
+      opt(f.kind,   `    kind = '${f.kind}',`),
+      `    create_card = function(self, card)`,
+      `        return create_card('Base', G.pack_cards, nil, nil, true, true, nil, '${key}')`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   enhancement: {
     folder: 'enhancements',
     prompt: 'Display name for the new Enhancement',
     placeholder: 'Glass Shard',
-    render: (prefix, key, name) => `SMODS.Enhancement {
-    key = '${key}',
-    loc_txt = {
-        name = '${name}',
-        text = { '{C:chips}+#1#{} chips' }
-    },
-    config = { bonus = 30 },
-    atlas = '${prefix}_enhancements',
-    pos = { x = 0, y = 0 },
-    loc_vars = function(self, info_queue, card)
-        return { vars = { card.ability.bonus } }
-    end,
-    calculate = function(self, card, context, effect)
-        if context.main_scoring then
-            return { chips = card.ability.bonus }
-        end
-    end
-}
-`
+    fields: [
+      { key: 'bonus', label: 'Chip bonus', default: '30' },
+    ],
+    render: (prefix, key, name, f) => [
+      `SMODS.Enhancement {`,
+      `    key = '${key}',`,
+      `    loc_txt = {`,
+      `        name = '${name}',`,
+      `        text = { '{C:chips}+#1#{} chips' }`,
+      `    },`,
+      opt(f.bonus, `    config = { bonus = ${f.bonus} },`),
+      `    atlas = '${prefix}_enhancements',`,
+      `    pos = { x = 0, y = 0 },`,
+      `    loc_vars = function(self, info_queue, card)`,
+      `        return { vars = { card.ability.bonus } }`,
+      `    end,`,
+      `    calculate = function(self, card, context, effect)`,
+      `        if context.main_scoring then`,
+      `            return { chips = card.ability.bonus }`,
+      `        end`,
+      `    end`,
+      `}`,
+    ].join('\n') + '\n'
   },
   shader: {
     folder: 'shaders',
     prompt: 'Display name for the new Shader',
     placeholder: 'Glow',
-    render: (_prefix, key, _name) => `SMODS.Shader {
+    fields: [],
+    render: (_prefix, key, _name, _f) => `SMODS.Shader {
     key = '${key}',
     path = 'shaders/${key}.fs'
 }
@@ -528,39 +604,65 @@ const OBJECT_SPECS: Record<ObjectKind, ObjectSpec> = {
     folder: 'sounds',
     prompt: 'Display name for the new Sound',
     placeholder: 'Crit Hit',
-    render: (_prefix, key, _name) => `SMODS.Sound {
-    key = '${key}',
-    path = '${key}.ogg',
-    volume = 1,
-    pitch = 1
-}
-`
+    fields: [
+      { key: 'volume', label: 'Volume (0–1)', default: '1' },
+      { key: 'pitch',  label: 'Pitch',        default: '1' },
+    ],
+    render: (_prefix, key, _name, f) => [
+      `SMODS.Sound {`,
+      `    key = '${key}',`,
+      `    path = '${key}.ogg',`,
+      opt(f.volume, `    volume = ${f.volume},`),
+      opt(f.pitch,  `    pitch = ${f.pitch}`),
+      `}`,
+    ].join('\n') + '\n'
   },
   challenge: {
     folder: 'challenges',
     prompt: 'Display name for the new Challenge',
     placeholder: 'Frugal Run',
-    render: (_prefix, key, name) => `SMODS.Challenge {
-    key = '${key}',
-    loc_txt = { name = '${name}' },
-    rules = {
-        custom = {},
-        modifiers = {
-            { id = 'dollars',     value = 10 },
-            { id = 'discards',    value = 3 },
-            { id = 'hands',       value = 4 },
-            { id = 'reroll_cost', value = 5 },
-            { id = 'joker_slots', value = 5 },
-            { id = 'hand_size',   value = 8 }
-        }
-    },
-    jokers = {},
-    consumeables = {},
-    vouchers = {},
-    deck = { type = 'Challenge Deck' },
-    restrictions = { banned_cards = {}, banned_tags = {}, banned_other = {} }
-}
-`
+    fields: [
+      { key: 'dollars',     label: 'Starting dollars',   default: '10' },
+      { key: 'discards',    label: 'Discards per round',  default: '3' },
+      { key: 'hands',       label: 'Hands per round',    default: '4' },
+      { key: 'reroll_cost', label: 'Reroll cost',        default: '5' },
+      { key: 'joker_slots', label: 'Joker slots',        default: '5' },
+      { key: 'hand_size',   label: 'Starting hand size', default: '8' },
+    ],
+    render: (_prefix, key, name, f) => {
+      const modifiers = [
+        f.dollars     !== undefined ? `            { id = 'dollars',     value = ${f.dollars} },` : null,
+        f.discards    !== undefined ? `            { id = 'discards',    value = ${f.discards} },` : null,
+        f.hands       !== undefined ? `            { id = 'hands',       value = ${f.hands} },` : null,
+        f.reroll_cost !== undefined ? `            { id = 'reroll_cost', value = ${f.reroll_cost} },` : null,
+        f.joker_slots !== undefined ? `            { id = 'joker_slots', value = ${f.joker_slots} },` : null,
+        f.hand_size   !== undefined ? `            { id = 'hand_size',   value = ${f.hand_size} }` : null,
+      ].filter(Boolean);
+
+      const rulesBlock = modifiers.length > 0
+        ? [
+          `    rules = {`,
+          `        custom = {},`,
+          `        modifiers = {`,
+          ...modifiers,
+          `        }`,
+          `    },`,
+        ].join('\n')
+        : `    rules = { custom = {}, modifiers = {} },`;
+
+      return [
+        `SMODS.Challenge {`,
+        `    key = '${key}',`,
+        `    loc_txt = { name = '${name}' },`,
+        rulesBlock,
+        `    jokers = {},`,
+        `    consumeables = {},`,
+        `    vouchers = {},`,
+        `    deck = { type = 'Challenge Deck' },`,
+        `    restrictions = { banned_cards = {}, banned_tags = {}, banned_other = {} }`,
+        `}`,
+      ].join('\n') + '\n';
+    }
   }
 };
 
@@ -578,6 +680,56 @@ async function pickModRoot(): Promise<string | undefined> {
     { title: 'Select target mod' }
   );
   return pick?.path;
+}
+
+/**
+ * Show a multi-select list of optional fields. For each selected field, ask
+ * for a value. Returns only the fields the user chose to customise (others
+ * are absent from the map and will not appear in the generated output).
+ */
+async function promptForFields(spec: ObjectSpec): Promise<FieldValues | undefined> {
+  if (spec.fields.length === 0) {return {};}
+
+  const items = spec.fields.map(f => ({
+    label: f.label,
+    description: `default: ${f.default}`,
+    picked: false,
+    field: f
+  }));
+
+  const selected = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    title: 'Optional fields — select those you want to include',
+    placeHolder: 'Leave empty to skip all optional fields'
+  });
+  if (selected === undefined) {return undefined;}
+
+  const result: FieldValues = {};
+
+  for (const item of selected) {
+    const f = item.field;
+    let value: string | undefined;
+
+    if (f.choices) {
+      const pick = await vscode.window.showQuickPick(
+        f.choices.map(c => ({ label: c, picked: c === f.default })),
+        { title: f.label }
+      );
+      if (pick === undefined) {return undefined;}
+      value = pick.label;
+    } else {
+      value = await vscode.window.showInputBox({
+        prompt: f.label,
+        value: f.default,
+        validateInput: f.validate
+      });
+      if (value === undefined) {return undefined;}
+    }
+
+    result[f.key] = value;
+  }
+
+  return result;
 }
 
 async function scaffoldContentFile(kind: ObjectKind): Promise<void> {
@@ -598,7 +750,9 @@ async function scaffoldContentFile(kind: ObjectKind): Promise<void> {
   });
   if (!key) {return;}
 
-  // Decide: insert at cursor or create new file
+  const fields = await promptForFields(spec);
+  if (fields === undefined) {return;}
+
   let insertInPlace = false;
   if (activeIsLua) {
     const choice = await vscode.window.showQuickPick(
@@ -619,7 +773,7 @@ async function scaffoldContentFile(kind: ObjectKind): Promise<void> {
   const prefix = typeof manifest?.data.prefix === 'string'
     ? manifest.data.prefix : 'mod';
 
-  const content = spec.render(prefix, key, displayName);
+  const content = spec.render(prefix, key, displayName, fields);
 
   if (insertInPlace) {
     const editor = activeEditor!;
@@ -665,7 +819,6 @@ export function registerScaffoldCommands(
       const input = await promptForMod();
       if (!input) {return;}
 
-      // Target root: right-clicked folder, first workspace folder, or ask.
       let target: string | undefined;
       if (resource && resource.fsPath) {
         target = resource.fsPath;
