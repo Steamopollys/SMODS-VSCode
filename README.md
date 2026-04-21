@@ -13,7 +13,7 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
   - Windows: PowerShell SendKeys
   - macOS: AppleScript via `osascript` (not tested)
   - Linux: `xdotool` (install separately) (not tested)
-- **Solo launch** — `Solo` status bar button launches Balatro with only Steamodded, Lovely, and your workspace mod active. All other mods are moved to a temporary stash beside the `Mods/` folder (`Mods/../.smods-stash`) and restored automatically when Balatro exits.
+- **Solo launch** — `Solo` status bar button launches Balatro with only Steamodded, Lovely, and your workspace mod active. Other mods are temporarily added to `lovely/blacklist.txt` and removed from it automatically when Balatro exits, so they remain on disk and can still be re-enabled in-game.
 - **Auto-reload on save** — when Balatro is running, save any `.lua`/`.json`/`.toml` in a detected mod root and the extension debounces an Alt+F5 for you. Toggle with the status-bar button or `smods.autoReload`.
 - **Balatro Log panel** — dedicated webview with per-level filter chips (TRACE/DEBUG/INFO/WARN/ERROR/FATAL) matched against the first word of each line, text search, follow mode, and clickable `file:line` links that jump to the source. Filter state (active chips, query, follow) is persisted across panel reloads.
 - **Atlas preview & sprite picker** — CodeLens above every `atlas = '...'` opens a clickable grid of the atlas image. Click a cell to write `pos = { x=, y= }` back to source.
@@ -51,7 +51,7 @@ All commands live under the "Smods:" prefix in the Command Palette.
 | `New Mod…` | Scaffold a complete Smods mod folder. |
 | `New Joker…` / `New Consumable…` / `New Voucher…` / `New Deck (Back)…` / `New Edition…` / `New Seal…` / `New Blind…` / `New Tag…` / `New Booster Pack…` / `New Enhancement…` / `New Shader…` / `New Sound…` / `New Challenge…` | Add a new object from a template, inserting at cursor or creating a new file. |
 | `Launch Balatro` | Launch Balatro via Steam. |
-| `Launch Balatro (Solo)` | Launch Balatro with only Steamodded, Lovely, and your workspace mod. Other mods are stashed and restored on exit. |
+| `Launch Balatro (Solo)` | Launch Balatro with only Steamodded, Lovely, and your workspace mod. Other mods are blacklisted via `lovely/blacklist.txt` and restored on exit. |
 | `Reload Mods (Alt+F5)` | Focus Balatro and send the reload keystroke. |
 | `Toggle Auto-Reload on Save` | Flip `smods.autoReload`. |
 | `Tail Balatro Log` | Start tailing the Lovely log (feeds the Balatro Log panel). |

@@ -7,13 +7,13 @@ import { getModsFolder } from './paths';
 import { ensureModSymlinks, removeModSymlinks } from './symlink';
 
 const BALATRO_STEAM_ID = '2379780';
-const STASH_DIRNAME = '.smods-stash';
+const SOLO_MARKER = '# smods-solo';
 
 // ---------------------------------------------------------------------------
-// Helpers: temporarily stash / restore non-essential mods
+// Helpers: temporarily blacklist / restore non-essential mods via lovely
 // ---------------------------------------------------------------------------
 
-/** Returns true if the folder name is a core runtime that must never be stashed. */
+/** Returns true if the folder name is a core runtime that must never be blacklisted. */
 function isCoreModDir(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.startsWith('smods-') || lower === 'steamodded' || lower === 'smods'
@@ -21,72 +21,76 @@ function isCoreModDir(name: string): boolean {
 }
 
 /**
- * Move every real (non-symlink) non-core directory in the Mods folder into
- * a stash folder that lives *beside* Mods (not inside) so Balatro ignores it.
+ * Append every real (non-symlink) non-core directory in the Mods folder to
+ * `lovely/blacklist.txt` so Steamodded skips them on this launch.
+ *
+ * Returns the original file content before modification (`null` if the file
+ * did not exist), so it can be restored by `restoreBlacklist`.
  */
-function stashOtherMods(
+function blacklistOtherMods(
   modsFolder: string,
   output: vscode.LogOutputChannel
-): void {
-  const stash = path.join(modsFolder, '..', STASH_DIRNAME);
-  try { fs.mkdirSync(stash, { recursive: true }); } catch { /* already exists */ }
+): string | null {
+  const blacklistPath = path.join(modsFolder, 'lovely', 'blacklist.txt');
+
+  let original: string | null = null;
+  try { original = fs.readFileSync(blacklistPath, 'utf8'); } catch { /* file absent */ }
 
   let entries: string[];
   try { entries = fs.readdirSync(modsFolder); }
-  catch (err) { output.warn(`Solo: cannot read Mods folder: ${err}`); return; }
+  catch (err) { output.warn(`Solo: cannot read Mods folder: ${err}`); return original; }
 
+  const toBlacklist: string[] = [];
   for (const entry of entries) {
-    if (entry === STASH_DIRNAME) { continue; }
     if (isCoreModDir(entry)) { continue; }
-
     const src = path.join(modsFolder, entry);
     let stat: fs.Stats;
     try { stat = fs.lstatSync(src); } catch { continue; }
-
     // Keep symlinks — they point to workspace mods the user wants to test.
     if (stat.isSymbolicLink()) { continue; }
     if (!stat.isDirectory()) { continue; }
-
-    const dst = path.join(stash, entry);
-    try {
-      fs.renameSync(src, dst);
-      output.info(`Solo: stashed "${entry}"`);
-    } catch (err) {
-      output.warn(`Solo: could not stash "${entry}": ${err}`);
-    }
+    toBlacklist.push(entry);
   }
+
+  if (toBlacklist.length === 0) { return original; }
+
+  const addition = `\n${SOLO_MARKER}\n${toBlacklist.join('\n')}`;
+  try {
+    fs.mkdirSync(path.dirname(blacklistPath), { recursive: true });
+    fs.writeFileSync(blacklistPath, (original ?? '') + addition, 'utf8');
+    output.info(`Solo: blacklisted ${toBlacklist.length} mod(s): ${toBlacklist.join(', ')}`);
+  } catch (err) {
+    output.warn(`Solo: could not write blacklist: ${err}`);
+  }
+  return original;
 }
 
 /**
- * Move everything from the stash back to the Mods folder.
- * Safe to call even if no stash exists.
+ * Restore `lovely/blacklist.txt` to the state captured by `blacklistOtherMods`.
+ * Deletes the file if it did not exist before (`original === null`).
  */
-function restoreStashedMods(
+function restoreBlacklist(
   modsFolder: string,
+  original: string | null,
   output: vscode.LogOutputChannel
 ): void {
-  const stash = path.join(modsFolder, '..', STASH_DIRNAME);
-  if (!fs.existsSync(stash)) { return; }
-
-  let entries: string[];
-  try { entries = fs.readdirSync(stash); } catch { return; }
-
-  for (const entry of entries) {
-    const src = path.join(stash, entry);
-    const dst = path.join(modsFolder, entry);
-    try {
-      fs.renameSync(src, dst);
-      output.info(`Solo: restored "${entry}"`);
-    } catch (err) {
-      output.warn(`Solo: could not restore "${entry}": ${err}`);
+  const blacklistPath = path.join(modsFolder, 'lovely', 'blacklist.txt');
+  try {
+    if (original === null) {
+      fs.unlinkSync(blacklistPath);
+    } else {
+      fs.writeFileSync(blacklistPath, original, 'utf8');
     }
+    output.info('Solo: restored blacklist.');
+  } catch (err) {
+    output.warn(`Solo: could not restore blacklist: ${err}`);
   }
-  try { fs.rmdirSync(stash); } catch { /* not empty or already gone */ }
 }
 
 export class BalatroRuntime {
   private pollTimer?: NodeJS.Timeout;
   private soloMode = false;
+  private soloBlacklistOriginal: string | null = null;
   private readonly _onDidChangeState = new vscode.EventEmitter<boolean>();
   readonly onDidChangeState = this._onDidChangeState.event;
 
@@ -144,7 +148,7 @@ export class BalatroRuntime {
     if (modsFolder) { this.output.info(`Mods folder: ${modsFolder}`); }
 
     if (solo && modsFolder) {
-      stashOtherMods(modsFolder, this.output);
+      this.soloBlacklistOriginal = blacklistOtherMods(modsFolder, this.output);
     }
 
     ensureModSymlinks(this.output);
@@ -164,7 +168,7 @@ export class BalatroRuntime {
       await vscode.commands.executeCommand('smodsLogView.focus');
     } catch (err) {
       this.output.error(`Launch failed: ${err}`);
-      if (solo && modsFolder) { restoreStashedMods(modsFolder, this.output); }
+      if (solo && modsFolder) { restoreBlacklist(modsFolder, this.soloBlacklistOriginal, this.output); }
       vscode.window.showErrorMessage(`Failed to launch Balatro: ${err}`);
     }
   }
@@ -183,11 +187,12 @@ export class BalatroRuntime {
         this.pollTimer = undefined;
         this.output.info('Balatro exited.');
         removeModSymlinks(this.output);
-        if (this.soloMode) {
-          const modsFolder = getModsFolder();
-          if (modsFolder) { restoreStashedMods(modsFolder, this.output); }
-          this.soloMode = false;
-        }
+          if (this.soloMode) {
+            const modsFolder = getModsFolder();
+            if (modsFolder) { restoreBlacklist(modsFolder, this.soloBlacklistOriginal, this.output); }
+            this.soloBlacklistOriginal = null;
+            this.soloMode = false;
+          }
         await vscode.commands.executeCommand(
           'setContext', 'smods.balatroRunning', false
         );

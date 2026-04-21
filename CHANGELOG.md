@@ -2,6 +2,11 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.2.0]
+
+### Changed
+- `Smods: Launch Balatro (Solo)` no longer moves mod folders to a stash directory. Instead, non-core mods are temporarily added to `lovely/blacklist.txt` and removed on exit. This avoids expensive filesystem moves and allows mods to be re-enabled in-game via Steamodded's UI during a solo session.
+
 ## [0.1.0] — Initial release
 
 ### Added
