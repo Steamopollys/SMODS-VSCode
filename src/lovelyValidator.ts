@@ -212,6 +212,7 @@ function lineRange(doc: vscode.TextDocument, line: number): vscode.Range {
   return l.range;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function keyRange(doc: vscode.TextDocument, key: string, fromLine: number): vscode.Range {
   for (let i = fromLine; i < Math.min(fromLine + 30, doc.lineCount); i++) {
     const text = doc.lineAt(i).text;
