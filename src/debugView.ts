@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import type { DebugAgent, LogEvent } from './debugAgent';
 
-const TREE_ROOTS_KEY = 'smods.debugTreeRoots';
-const DEFAULT_ROOTS = ['G', 'G.GAME', 'G.jokers', 'G.hand', 'G.consumeables', 'G.deck', '_G'];
+const PINNED_KEY = 'smods.debugTreePinned';
+const HIDDEN_KEY = 'smods.debugTreeHidden';
 const MAX_LOG_LINES = 2000;
 
 type UiMsg =
@@ -14,7 +14,9 @@ type UiMsg =
   | { type: 'listChildren'; path: string; nodeId: string; limit?: number }
   | { type: 'getPath'; path: string; watchId: string }
   | { type: 'setPath'; path: string; valueJson: string }
-  | { type: 'setRoots'; roots: string[] }
+  | { type: 'pin'; path: string }
+  | { type: 'unpin'; path: string }
+  | { type: 'rescan' }
   | { type: 'profilerToggle' }
   | { type: 'perfToggle' }
   | { type: 'perfStats' }
@@ -25,16 +27,23 @@ type UiMsg =
 class DebugViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private logBuffer: LogEvent[] = [];
+  private autoRoots: string[] = [];
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly agent: DebugAgent
   ) {
-    agent.onDidConnect(hello => this.post({ type: 'connected', hello,
-      profilerRunning: hello.profilerRunning ?? false,
-      perfOverlay: hello.perfOverlay ?? false,
-    }));
-    agent.onDidDisconnect(() => this.post({ type: 'disconnected' }));
+    agent.onDidConnect(hello => {
+      this.post({ type: 'connected', hello,
+        profilerRunning: hello.profilerRunning ?? false,
+        perfOverlay: hello.perfOverlay ?? false,
+      });
+      void this.refreshAutoRoots();
+    });
+    agent.onDidDisconnect(() => {
+      this.autoRoots = [];
+      this.post({ type: 'disconnected' });
+    });
     agent.onPauseState(paused => this.post({ type: 'pauseState', paused }));
     agent.onLogLine(line => {
       this.logBuffer.push(line);
@@ -56,13 +65,68 @@ class DebugViewProvider implements vscode.WebviewViewProvider {
     this.view?.webview.postMessage(msg);
   }
 
-  private roots(): string[] {
-    const stored = this.context.workspaceState.get<string[] | undefined>(TREE_ROOTS_KEY);
-    return stored ?? DEFAULT_ROOTS;
+  private pinned(): string[] {
+    return this.context.workspaceState.get<string[]>(PINNED_KEY) ?? [];
   }
 
-  private async setRoots(list: string[]): Promise<void> {
-    await this.context.workspaceState.update(TREE_ROOTS_KEY, list);
+  private hidden(): string[] {
+    return this.context.workspaceState.get<string[]>(HIDDEN_KEY) ?? [];
+  }
+
+  private async setPinned(list: string[]): Promise<void> {
+    await this.context.workspaceState.update(PINNED_KEY, list);
+  }
+
+  private async setHidden(list: string[]): Promise<void> {
+    await this.context.workspaceState.update(HIDDEN_KEY, list);
+  }
+
+  private roots(): string[] {
+    const hidden = new Set(this.hidden());
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of this.autoRoots) {
+      if (hidden.has(p) || seen.has(p)) { continue; }
+      seen.add(p); out.push(p);
+    }
+    for (const p of this.pinned()) {
+      if (seen.has(p)) { continue; }
+      seen.add(p); out.push(p);
+    }
+    return out;
+  }
+
+  private async refreshAutoRoots(): Promise<void> {
+    if (!this.agent.isConnected) { return; }
+    try {
+      const res = await this.agent.listGlobals();
+      this.autoRoots = res.globals.map(g => g.key);
+    } catch {
+      this.autoRoots = [];
+    }
+    this.post({ type: 'roots', roots: this.roots() });
+  }
+
+  private async pin(path: string): Promise<void> {
+    const hidden = this.hidden();
+    if (hidden.includes(path)) {
+      await this.setHidden(hidden.filter(p => p !== path));
+    } else if (!this.autoRoots.includes(path) && !this.pinned().includes(path)) {
+      await this.setPinned([...this.pinned(), path]);
+    }
+    this.post({ type: 'roots', roots: this.roots() });
+  }
+
+  private async unpin(path: string): Promise<void> {
+    if (this.autoRoots.includes(path)) {
+      const hidden = this.hidden();
+      if (!hidden.includes(path)) { await this.setHidden([...hidden, path]); }
+    }
+    const pinned = this.pinned();
+    if (pinned.includes(path)) {
+      await this.setPinned(pinned.filter(p => p !== path));
+    }
+    this.post({ type: 'roots', roots: this.roots() });
   }
 
   private async handle(msg: UiMsg): Promise<void> {
@@ -113,9 +177,14 @@ class DebugViewProvider implements vscode.WebviewViewProvider {
         try { await this.agent.setPath(msg.path, msg.valueJson); }
         catch (err) { this.postError(err); }
         break;
-      case 'setRoots':
-        await this.setRoots(msg.roots);
-        this.post({ type: 'roots', roots: msg.roots });
+      case 'pin':
+        await this.pin(msg.path);
+        break;
+      case 'unpin':
+        await this.unpin(msg.path);
+        break;
+      case 'rescan':
+        await this.refreshAutoRoots();
         break;
       case 'profilerToggle':
         try {
@@ -273,7 +342,7 @@ class DebugViewProvider implements vscode.WebviewViewProvider {
     <div class="tree-toolbar">
       <div class="tree-toolbar-row">
         <input id="tree-filter" placeholder="filter visible keys" />
-        <button class="secondary" id="btn-tree-refresh" title="Refresh roots (preserves expansion)">⟳</button>
+        <button class="secondary" id="btn-tree-refresh" title="Re-detect globals from _G">⟳</button>
       </div>
       <div class="tree-toolbar-row">
         <input id="tree-path" placeholder="pin path as root, e.g. G.GAME.dollars" />
@@ -448,8 +517,7 @@ function addRootRow(path) {
 }
 
 function unpinRoot(path) {
-  const next = roots.filter(p => p !== path);
-  vscode.postMessage({ type: 'setRoots', roots: next });
+  vscode.postMessage({ type: 'unpin', path });
 }
 
 function pinRoot(path) {
@@ -460,7 +528,7 @@ function pinRoot(path) {
     if (wrap) wrap.scrollIntoView({ block: 'nearest' });
     return;
   }
-  vscode.postMessage({ type: 'setRoots', roots: [...roots, path] });
+  vscode.postMessage({ type: 'pin', path });
 }
 
 function makeAction(icon, title, onClick, extraClass) {
@@ -661,7 +729,10 @@ el.treePath.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); el.treePinBtn.click(); }
 });
 
-el.treeRefreshBtn.onclick = () => renderRoots();
+el.treeRefreshBtn.onclick = () => {
+  if (connected) vscode.postMessage({ type: 'rescan' });
+  else renderRoots();
+};
 
 // --- log pane ---
 function appendLog(line) {

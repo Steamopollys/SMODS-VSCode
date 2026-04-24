@@ -2,6 +2,14 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.3.1]
+
+### Added
+- `smods.launchWithoutSteam` setting (default `false`). When enabled, every launch path (launch, solo, reload) spawns `smods.balatroExecutable` directly instead of opening `steam://rungameid/2379780`. Errors if the executable path is not set or auto-detected.
+
+### Changed
+- Debug panel Globals tree auto-detects roots from `_G` on connect (filters Lua/LÖVE builtins, returns table-type keys) instead of using a hardcoded `G` / `G.GAME` / `G.jokers` / … list. Added `listGlobals` bridge RPC. User pin/hide overrides layer on top via `smods.debugTreePinned` and `smods.debugTreeHidden` workspaceState keys; unpinning an auto-root hides it, pinning a path adds it. Refresh button re-runs detection when connected.
+
 ## [0.3.0]
 
 ### Added

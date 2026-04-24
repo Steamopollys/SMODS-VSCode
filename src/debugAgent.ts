@@ -340,6 +340,12 @@ export class DebugAgent {
     return this.request('setPath', { path: p, valueJson });
   }
 
+  listGlobals(): Promise<{
+    globals: { key: string; type: string; preview: string }[];
+  }> {
+    return this.request('listGlobals');
+  }
+
   listChildren(p: string, limit = 200): Promise<{
     children: { key: string; keyType: string; type: string; preview: string }[];
     truncated: boolean;

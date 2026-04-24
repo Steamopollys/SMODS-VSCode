@@ -2,7 +2,7 @@
   "name": "smods-tools",
   "displayName": "Smods Tools",
   "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "Steamo",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -337,6 +337,11 @@
           "type": "string",
           "default": "",
           "description": "Absolute path to Balatro.exe (Windows) or Balatro binary. Leave empty to auto-detect via Steam."
+        },
+        "smods.launchWithoutSteam": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, launch Balatro directly via its executable instead of Steam. Requires smods.balatroExecutable or a detectable Steam install path."
         },
         "smods.modsFolder": {
           "type": "string",

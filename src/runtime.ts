@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getModsFolder } from './paths';
+import { getModsFolder, defaultBalatroExecutable } from './paths';
 import { ensureModSymlinks, removeModSymlinks } from './symlink';
 import type { DebugAgent } from './debugAgent';
 
@@ -160,8 +160,10 @@ export class BalatroRuntime {
   private async _launch(solo: boolean): Promise<void> {
     const modsFolder = getModsFolder();
     const debugArmed = this.debugMode;
+    const direct = vscode.workspace.getConfiguration('smods')
+      .get<boolean>('launchWithoutSteam', false);
     this.output.info(
-      `Launching Balatro via Steam (appid ${BALATRO_STEAM_ID})`
+      `Launching Balatro ${direct ? 'directly (no Steam)' : `via Steam (appid ${BALATRO_STEAM_ID})`}`
       + `${solo ? ' [solo]' : ''}${debugArmed ? ' [debug]' : ''}`
     );
     if (modsFolder) { this.output.info(`Mods folder: ${modsFolder}`); }
@@ -189,9 +191,25 @@ export class BalatroRuntime {
     }
 
     try {
-      await vscode.env.openExternal(
-        vscode.Uri.parse(`steam://rungameid/${BALATRO_STEAM_ID}`)
-      );
+      if (direct) {
+        const exe = defaultBalatroExecutable();
+        if (!exe || !fs.existsSync(exe)) {
+          throw new Error(
+            'Balatro executable not found. Set "smods.balatroExecutable" in settings.'
+          );
+        }
+        const child = cp.spawn(exe, [], {
+          cwd: path.dirname(exe),
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false
+        });
+        child.unref();
+      } else {
+        await vscode.env.openExternal(
+          vscode.Uri.parse(`steam://rungameid/${BALATRO_STEAM_ID}`)
+        );
+      }
       // Wait briefly for the process to appear, then start polling.
       await new Promise(r => setTimeout(r, 3000));
       this.soloMode = solo;
