@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 out/
 dist/
 *.vsix
@@ -6,6 +6,3 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
-.claude/
-CLAUDE.md
-AGENTS.md
