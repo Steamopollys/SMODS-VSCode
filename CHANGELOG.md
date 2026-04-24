@@ -2,6 +2,19 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.3.0]
+
+### Added
+- Debug mode — loopback TCP bridge to a running Balatro. Toggle from the status bar. On next launch the `smods-debug-bridge` mod is copied into `Mods/` and the Debug panel opens.
+- Debug panel: Lua REPL, pause/resume/step (shift-click Step = 10 frames), live `G` tree with editable values, watch expressions, DebugPlus log pane, profiler + perf-overlay toggles, 5 save-state slots.
+- Commands: `Toggle Debug Mode`, `Pause Engine` (F6), `Resume Engine` (Shift+F6), `Eval Lua in Balatro…`, `Show Debug Panel`.
+- Settings: `smods.debugPort` (default 43278, +10 fallback), `smods.debugAutoOpenPanel` (default true).
+- Context key `smods.debugConnected` gates pause/resume/eval.
+- DebugPlus (any `debugplus*` folder) skipped by the solo blacklist, so solo + debug combine.
+
+### Changed
+- Reload now kills Balatro (`taskkill /IM Balatro.exe /F` on Windows, `pkill -x Balatro` elsewhere) and relaunches via Steam. No more Alt+F5 keystroke injection. Drops the PowerShell / `osascript` / `xdotool` dependency.
+
 ## [0.2.0]
 
 ### Changed

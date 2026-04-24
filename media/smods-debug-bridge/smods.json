@@ -1,0 +1,12 @@
+{
+    "id": "SmodsDebugBridge",
+    "name": "Smods Debug Bridge",
+    "display_name": "Smods Debug Bridge",
+    "author": ["smods-tools"],
+    "description": "VS Code debug bridge. Relays Lua REPL, pause/resume, and inspector commands over localhost TCP while the smods-tools extension is driving the session.",
+    "prefix": "smodsdbg",
+    "main_file": "main.lua",
+    "priority": -10000,
+    "version": "0.1.0",
+    "dependencies": ["DebugPlus (>=1.5.0)"]
+}

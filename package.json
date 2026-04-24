@@ -2,7 +2,7 @@
   "name": "smods-tools",
   "displayName": "Smods Tools",
   "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "Steamo",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -177,6 +177,34 @@
         "command": "smods.newChallenge",
         "title": "Smods: New Challenge…",
         "category": "Smods"
+      },
+      {
+        "command": "smods.toggleDebugMode",
+        "title": "Smods: Toggle Debug Mode",
+        "category": "Smods",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "smods.debugPause",
+        "title": "Smods: Pause Engine",
+        "category": "Smods",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "smods.debugResume",
+        "title": "Smods: Resume Engine",
+        "category": "Smods",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "smods.debugEval",
+        "title": "Smods: Eval Lua in Balatro…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.showDebugPanel",
+        "title": "Smods: Show Debug Panel",
+        "category": "Smods"
       }
     ],
     "menus": {
@@ -199,6 +227,18 @@
         {
           "command": "smods.launchBalatro",
           "when": "!smods.balatroRunning"
+        },
+        {
+          "command": "smods.debugPause",
+          "when": "smods.debugConnected"
+        },
+        {
+          "command": "smods.debugResume",
+          "when": "smods.debugConnected"
+        },
+        {
+          "command": "smods.debugEval",
+          "when": "smods.debugConnected"
         }
       ]
     },
@@ -217,6 +257,16 @@
         "command": "smods.showLog",
         "key": "ctrl+shift+l",
         "mac": "cmd+shift+l"
+      },
+      {
+        "command": "smods.debugPause",
+        "key": "f6",
+        "when": "smods.debugConnected"
+      },
+      {
+        "command": "smods.debugResume",
+        "key": "shift+f6",
+        "when": "smods.debugConnected"
       }
     ],
     "languages": [
@@ -271,6 +321,12 @@
           "type": "webview",
           "name": "Balatro Log",
           "contextualTitle": "Balatro"
+        },
+        {
+          "id": "smodsDebugView",
+          "type": "webview",
+          "name": "Balatro Debug",
+          "contextualTitle": "Balatro"
         }
       ]
     },
@@ -317,6 +373,18 @@
           "default": 500,
           "minimum": 100,
           "description": "Debounce window (ms) between the last file change and the auto-reload keystroke."
+        },
+        "smods.debugPort": {
+          "type": "number",
+          "default": 43278,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Loopback TCP port the in-game debug bridge listens on. Bridge falls back to the next 10 ports if this one is busy."
+        },
+        "smods.debugAutoOpenPanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reveal the Balatro Debug panel when the debug bridge connects."
         }
       }
     },

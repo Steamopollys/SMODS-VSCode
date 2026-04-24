@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { getModsFolder } from './paths';
 import { ensureModSymlinks, removeModSymlinks } from './symlink';
+import type { DebugAgent } from './debugAgent';
 
 const BALATRO_STEAM_ID = '2379780';
 const SOLO_MARKER = '# smods-solo';
@@ -16,8 +16,10 @@ const SOLO_MARKER = '# smods-solo';
 /** Returns true if the folder name is a core runtime that must never be blacklisted. */
 function isCoreModDir(name: string): boolean {
   const lower = name.toLowerCase();
+  // `smods-` prefix covers our own ephemeral mods (symlinks, smods-debug-bridge).
+  // DebugPlus is whitelisted so debug mode + solo can coexist.
   return lower.startsWith('smods-') || lower === 'steamodded' || lower === 'smods'
-    || lower === 'lovely';
+    || lower === 'lovely' || lower.startsWith('debugplus');
 }
 
 /**
@@ -91,13 +93,26 @@ export class BalatroRuntime {
   private pollTimer?: NodeJS.Timeout;
   private soloMode = false;
   private soloBlacklistOriginal: string | null = null;
+  private debugMode = false;
+  private debugAgent?: DebugAgent;
+  private debugActiveForRun = false;
   private readonly _onDidChangeState = new vscode.EventEmitter<boolean>();
+  private readonly _onDidChangeDebugMode = new vscode.EventEmitter<boolean>();
   readonly onDidChangeState = this._onDidChangeState.event;
+  readonly onDidChangeDebugMode = this._onDidChangeDebugMode.event;
 
   constructor(private output: vscode.LogOutputChannel) {}
 
   isRunning(): boolean {
     return !!this.pollTimer;
+  }
+
+  setDebugAgent(agent: DebugAgent): void { this.debugAgent = agent; }
+  isDebugMode(): boolean { return this.debugMode; }
+  setDebugMode(on: boolean): void {
+    if (this.debugMode === on) { return; }
+    this.debugMode = on;
+    this._onDidChangeDebugMode.fire(on);
   }
 
   async stop(): Promise<void> {
@@ -144,7 +159,11 @@ export class BalatroRuntime {
 
   private async _launch(solo: boolean): Promise<void> {
     const modsFolder = getModsFolder();
-    this.output.info(`Launching Balatro via Steam (appid ${BALATRO_STEAM_ID})${solo ? ' [solo]' : ''}`);
+    const debugArmed = this.debugMode;
+    this.output.info(
+      `Launching Balatro via Steam (appid ${BALATRO_STEAM_ID})`
+      + `${solo ? ' [solo]' : ''}${debugArmed ? ' [debug]' : ''}`
+    );
     if (modsFolder) { this.output.info(`Mods folder: ${modsFolder}`); }
 
     if (solo && modsFolder) {
@@ -152,6 +171,22 @@ export class BalatroRuntime {
     }
 
     ensureModSymlinks(this.output);
+
+    this.debugActiveForRun = false;
+    if (debugArmed && this.debugAgent && modsFolder) {
+      if (!this.debugAgent.detectDebugPlus(modsFolder)) {
+        vscode.window.showWarningMessage(
+          'Debug mode is armed but DebugPlus is not installed. Launching without debug bridge.'
+        );
+      } else {
+        try {
+          await this.debugAgent.installBridge(modsFolder);
+          this.debugActiveForRun = true;
+        } catch (err) {
+          this.output.warn(`Debug: bridge install failed, continuing without debug: ${err}`);
+        }
+      }
+    }
 
     try {
       await vscode.env.openExternal(
@@ -161,14 +196,28 @@ export class BalatroRuntime {
       await new Promise(r => setTimeout(r, 3000));
       this.soloMode = solo;
       await this.startPolling();
+      const extra = this.debugActiveForRun ? ' [debug]' : '';
       vscode.window.showInformationMessage(
-        solo ? 'Launched Balatro (solo — other mods disabled).' : 'Launched Balatro.'
+        solo
+          ? `Launched Balatro (solo — other mods disabled)${extra}.`
+          : `Launched Balatro${extra}.`
       );
       await vscode.commands.executeCommand('smods.showLog');
       await vscode.commands.executeCommand('smodsLogView.focus');
+      if (this.debugActiveForRun && this.debugAgent) {
+        void this.debugAgent.connect().then(async ok => {
+          if (ok && vscode.workspace.getConfiguration('smods').get<boolean>('debugAutoOpenPanel', true)) {
+            await vscode.commands.executeCommand('smodsDebugView.focus');
+          }
+        });
+      }
     } catch (err) {
       this.output.error(`Launch failed: ${err}`);
       if (solo && modsFolder) { restoreBlacklist(modsFolder, this.soloBlacklistOriginal, this.output); }
+      if (this.debugActiveForRun && modsFolder) {
+        this.debugAgent?.uninstallBridge(modsFolder);
+        this.debugActiveForRun = false;
+      }
       vscode.window.showErrorMessage(`Failed to launch Balatro: ${err}`);
     }
   }
@@ -193,6 +242,12 @@ export class BalatroRuntime {
             this.soloBlacklistOriginal = null;
             this.soloMode = false;
           }
+          if (this.debugActiveForRun) {
+            const modsFolder = getModsFolder();
+            this.debugAgent?.disconnect();
+            if (modsFolder) { this.debugAgent?.uninstallBridge(modsFolder); }
+            this.debugActiveForRun = false;
+          }
         await vscode.commands.executeCommand(
           'setContext', 'smods.balatroRunning', false
         );
@@ -202,138 +257,44 @@ export class BalatroRuntime {
   }
 
   /**
-   * Send a mod-reload keystroke (Alt+F5) to the running Balatro window.
-   *
-   * This uses platform-specific tooling:
-   *   - Windows: PowerShell's SendKeys via System.Windows.Forms
-   *   - macOS:   osascript tell System Events
-   *   - Linux:   xdotool if available
+   * Reload Balatro by killing the running process and relaunching via Steam.
+   * Preserves the current solo/debug mode that was used for the original launch.
    */
   async reload(): Promise<void> {
-    const platform = process.platform;
+    if (!this.isRunning()) {
+      vscode.window.showInformationMessage('Balatro is not running.');
+      return;
+    }
+    const solo = this.soloMode;
+    this.output.info(`Reloading Balatro (kill + relaunch)${solo ? ' [solo]' : ''}.`);
     try {
-      if (platform === 'win32') {
-        const ps1 = `\$ErrorActionPreference = 'Stop'
-\$proc = Get-Process -Name Balatro -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not \$proc) { Write-Error "Balatro not running"; exit 2 }
-Add-Type -TypeDefinition @"
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
-public class WinMsg {
-    public delegate bool EnumWindowsProc(IntPtr h, IntPtr lp);
-    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc cb, IntPtr lp);
-    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
-    [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr h);
-    [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetClassName(IntPtr h, StringBuilder buf, int max);
-    [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr h, StringBuilder buf, int max);
-    [DllImport("user32.dll", SetLastError=true)] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr wp, IntPtr lp);
-    [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint code, uint type);
-    public static List<IntPtr> GameWindowsForPid(uint pid) {
-        var list = new List<IntPtr>();
-        EnumWindows((h, lp) => {
-            uint wpid; GetWindowThreadProcessId(h, out wpid);
-            if (wpid != pid || !IsWindowVisible(h) || GetWindowTextLength(h) == 0) return true;
-            var cls = new StringBuilder(256); GetClassName(h, cls, 256);
-            if (cls.ToString() == "ConsoleWindowClass") return true;
-            list.Add(h); return true;
-        }, IntPtr.Zero);
-        return list;
-    }
-    public static string WindowLabel(IntPtr h) {
-        var t = new StringBuilder(256); GetWindowText(h, t, 256);
-        var c = new StringBuilder(256); GetClassName(h, c, 256);
-        return t.ToString() + " [" + c.ToString() + "]";
-    }
-}
-"@
-\$windows = [WinMsg]::GameWindowsForPid(\$proc.Id)
-if (\$windows.Count -eq 0) { Write-Error "Balatro window not found (pid \$(\$proc.Id))"; exit 2 }
-\$hwnd = \$windows[0]
-Write-Host ("Target hwnd=0x{0:X} {1}" -f \$hwnd.ToInt64(), [WinMsg]::WindowLabel(\$hwnd))
-
-\$VK_MENU = 0x12
-\$VK_F5   = 0x74
-\$altScan = [WinMsg]::MapVirtualKey(\$VK_MENU, 0)
-\$f5Scan  = [WinMsg]::MapVirtualKey(\$VK_F5,   0)
-\$WM_KEYUP       = 0x101
-\$WM_SYSKEYDOWN  = 0x104
-\$WM_SYSKEYUP    = 0x105
-
-function MakeLParam([int]\$scan, [bool]\$up, [bool]\$ctxAlt) {
-    \$l = [int64]1
-    \$l = \$l -bor ([int64]\$scan -shl 16)
-    if (\$ctxAlt) { \$l = \$l -bor ([int64]1 -shl 29) }
-    if (\$up)     { \$l = \$l -bor ([int64]1 -shl 30) -bor ([int64]1 -shl 31) }
-    return [IntPtr]\$l
-}
-
-\$posts = @(
-    @(\$WM_SYSKEYDOWN, \$VK_MENU, (MakeLParam \$altScan \$false \$false)),
-    @(\$WM_SYSKEYDOWN, \$VK_F5,   (MakeLParam \$f5Scan  \$false \$true)),
-    @(\$WM_SYSKEYUP,   \$VK_F5,   (MakeLParam \$f5Scan  \$true  \$true)),
-    @(\$WM_KEYUP,      \$VK_MENU, (MakeLParam \$altScan \$true  \$false))
-)
-\$fails = 0
-\$failDetail = @()
-for (\$i = 0; \$i -lt \$posts.Count; \$i++) {
-    \$p = \$posts[\$i]
-    \$r = [WinMsg]::PostMessage(\$hwnd, \$p[0], [IntPtr]\$p[1], \$p[2])
-    if (-not \$r) {
-        \$fails++
-        \$failDetail += "post\$i:err\$([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
-    }
-    if (\$i -lt 3) { Start-Sleep -Milliseconds 40 }
-}
-if (\$fails -eq \$posts.Count) {
-    Write-Error "all PostMessage calls failed (\$(\$failDetail -join ','))"
-    exit 3
-}
-if (\$fails -gt 0) { Write-Host "Posted Alt+F5 (\$fails of \$(\$posts.Count) posts failed: \$(\$failDetail -join ','))" }
-else { Write-Host "Posted Alt+F5" }
-`;
-        const tmpFile = path.join(os.tmpdir(), 'smods_reload.ps1');
-        fs.writeFileSync(tmpFile, ps1, 'utf8');
-        const { stdout, stderr } = await runCmdCapture('powershell.exe',
-          ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', tmpFile]);
-        if (stdout.trim()) {this.output.info(`reload.ps1: ${stdout.trim()}`);}
-        if (stderr.trim()) {this.output.warn(`reload.ps1: ${stderr.trim()}`);}
-      } else if (platform === 'darwin') {
-        const script = `
-tell application "System Events"
-  if exists (process "Balatro") then
-    tell process "Balatro" to set frontmost to true
-    delay 0.12
-    key code 96 using {option down}
-  else
-    error "Balatro not running"
-  end if
-end tell`;
-        await runCmd('osascript', ['-e', script]);
+      if (process.platform === 'win32') {
+        await runCmd('taskkill.exe', ['/IM', 'Balatro.exe', '/F']);
       } else {
-        // Linux: try xdotool.
-        try {
-          await runCmd('xdotool', [
-            'search', '--name', 'Balatro', 'windowactivate',
-            '--sync', 'key', 'alt+F5'
-          ]);
-        } catch {
-          vscode.window.showWarningMessage(
-            'Install xdotool to enable "Reload Mods" on Linux, or press Alt+F5 in-game.'
-          );
-          return;
-        }
+        await runCmd('pkill', ['-x', 'Balatro']);
       }
-      ensureModSymlinks(this.output);
-      this.output.info('Sent Alt+F5 to Balatro.');
     } catch (err) {
-      this.output.error(`Reload failed: ${err}`);
-      vscode.window.showErrorMessage(
-        `Reload failed: ${err}. Is Balatro running? You can also press Alt+F5 manually in-game.`
-      );
+      this.output.error(`Reload: kill failed: ${err}`);
+      vscode.window.showErrorMessage(`Reload failed (could not kill Balatro): ${err}`);
+      return;
     }
+    // Wait for the process to fully exit before relaunching.
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      if (!(await isBalatroProcessRunning())) { break; }
+    }
+
+    // Stop the poll timer ourselves so it doesn't race with _launch and
+    // remove symlinks after _launch has already re-established them.
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = undefined;
+    }
+    removeModSymlinks(this.output);
+    await vscode.commands.executeCommand('setContext', 'smods.balatroRunning', false);
+    this._onDidChangeState.fire(false);
+
+    await this._launch(solo);
   }
 }
 
@@ -363,22 +324,6 @@ function runCmd(cmd: string, args: string[], opts: cp.SpawnOptions = {}): Promis
     child.on('exit', code => {
       if (code === 0) {resolve();}
       else {reject(new Error(stderr || `exit ${code}`));}
-    });
-  });
-}
-
-function runCmdCapture(
-  cmd: string, args: string[], opts: cp.SpawnOptions = {}
-): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn(cmd, args, { shell: false, windowsHide: true, ...opts });
-    let stdout = '', stderr = '';
-    child.stdout?.on('data', d => { stdout += d.toString(); });
-    child.stderr?.on('data', d => { stderr += d.toString(); });
-    child.on('error', reject);
-    child.on('exit', code => {
-      if (code === 0) {resolve({ stdout, stderr });}
-      else {reject(new Error(stderr.trim() || stdout.trim() || `exit ${code}`));}
     });
   });
 }

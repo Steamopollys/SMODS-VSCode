@@ -14,10 +14,11 @@ Press **F5** in VSCode to launch the Extension Development Host with your workin
 
 ## Project layout
 
-- `src/` — TypeScript source for commands, runtime, log tailer, validators.
+- `src/` — TypeScript source for commands, runtime, log tailer, validators, debug agent + view.
 - `snippets/smods.code-snippets` — JSON snippet file, no code required to contribute here.
 - `schemas/smods-manifest.schema.json` — manifest JSON schema.
 - `media/` — icon and other assets shipped with the extension.
+- `media/smods-debug-bridge/` — Lua mod (`main.lua`, `bridge.lua`) copied into `Mods/` on armed launch. Edit here for in-game RPC changes; picked up on next Balatro launch.
 
 ## Easy first contributions
 
