@@ -5,7 +5,7 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
 ## Features
 
 - **Snippets** for every major SMODS object — jokers, consumables, decks, vouchers, boosters, editions, seals, blinds, tags, rarities, ranks, suits, atlases, sounds, shaders, challenges, keybinds, and more. Type `smods-` in any `.lua` file to see them all.
-- **IntelliSense & hover docs** via Steamodded's own `lsp_def/` type definitions. Powered by the [sumneko Lua Language Server](https://marketplace.visualstudio.com/items?itemName=sumneko.lua) (installed automatically as a dependency). You get completion on `SMODS.Joker`, calculate-function `context` fields, the `Card` class, and more. Requires Steamodded installed in your `Mods/` folder.
+- **IntelliSense & hover docs** via Steamodded's `lsp_def/` type definitions and its `src/` folder, both attached to `Lua.workspace.library`. Ctrl-click jumps into SMODS source when statically resolvable; stubs are the fallback. Powered by the [sumneko Lua Language Server](https://marketplace.visualstudio.com/items?itemName=sumneko.lua) (installed automatically as a dependency). You get completion on `SMODS.Joker`, calculate-function `context` fields, the `Card` class, and more. Requires Steamodded installed in your `Mods/` folder. Optionally point `smods.love2dLibraryPath` and `smods.balatroSourcePath` at Love2D API stubs and extracted Balatro Lua to get the same treatment for engine + base-game symbols.
 - **Mod scaffolding** — `Smods: New Mod…` creates a mod folder with manifest, `main.lua`, localization stub, optional atlas folders, and optional Lovely patch folder. Separate commands create jokers, consumables, vouchers, decks, editions, seals, blinds, tags, boosters, enhancements, shaders, sounds, and challenges from templates. When a Lua file is already open, scaffold commands offer to **insert at cursor** instead of creating a new file.
 - **Manifest validation** — JSON schema plus extra checks: reserved IDs, missing `main_file` on disk, bad badge hex, malformed or unresolvable `dependencies`, and more. Errors appear in the Problems panel.
 - **Lovely `patches.toml` support** — built-in validation (no external extension needed) with diagnostics for required fields, type errors, invalid `position` values, and unknown keys. Hover any key or section header for its description. `payload` strings (both `"""` and `'''`) are syntax-highlighted as Lua and support full Lua Language Server hover and IntelliSense (completions) inside the string.
@@ -18,7 +18,7 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
 - **Localization linter** — flags `SMODS.<Kind>` blocks without an `loc_txt` nor a matching entry in `localization/*.lua`. CodeLens jumps to the entry or creates a stub in `en-us.lua`.
 - **Calculate-context hover + completion** — hover any `context.<flag>` in a `calculate` function for a description and example. Auto-completes all 45 documented flags.
 - **SMODS API quick-search** — `Smods: Open SMODS API Reference…` fuzzy-searches every class/function in Steamodded's `lsp_def/` and jumps to the definition.
-- **Version bump + package** — `Smods: Bump Mod Version…` rewrites the manifest's SemVer (patch/minor/major/prerelease). `Smods: Package Mod as Zip…` zips the mod with sensible excludes, ready for release.
+- **Version bump + package** — `Smods: Bump Mod Version…` rewrites the manifest's SemVer (patch/minor/major/prerelease). `Smods:Package  Mod as Zip…` zips the mod with default excludes (`.git`, etc.).
 - **Auto-symlink mod on launch** — optionally symlinks your mod folder into the Balatro `Mods/` directory before launch or reload, then removes it when Balatro exits or VS Code closes. Lets you develop anywhere on disk without manually copying files. Enable via `smods.symlinkModOnLaunch`.
 
 ## Requirements
@@ -32,10 +32,13 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
 | Setting | Description |
 |---|---|
 | `smods.balatroExecutable` | Absolute path to `Balatro.exe`. Auto-detected on Steam installs. |
-| `smods.launchWithoutSteam` | Launch Balatro directly via `smods.balatroExecutable` instead of Steam. Applies to launch, solo, and reload. Default false. |
+| `smods.launchWithoutSteam` | Launch Balatro directly via `smods.balatroExecutable` instead of Steam. Applies to launch, solo, and reload. Default false. Direct launches automatically prepend `--disable-console` and a bare `-` arg (required for Lovely to hook correctly). |
+| `smods.launchArgs` | Extra command-line arguments forwarded to Balatro on launch. Argv-spread when launching directly. URL-encoded suffix on the Steam URL otherwise. Default `[]`. |
 | `smods.modsFolder` | Path to the Balatro `Mods/` folder. Defaults to `%AppData%/Balatro/Mods`. |
 | `smods.logFile` | Path to the Lovely log. Defaults to files under `%AppData%/Balatro/`. |
-| `smods.autoAttachLuaTypes` | When true, adds Steamodded's `lsp_def/` folder to `Lua.workspace.library`. |
+| `smods.autoAttachLuaTypes` | When true, adds Steamodded's `lsp_def/` and `src/` folders to `Lua.workspace.library` and pins `Lua.runtime.version` to `LuaJIT` (Balatro's runtime). |
+| `smods.love2dLibraryPath` | Absolute path to a Love2D API/source directory to attach to `Lua.workspace.library`. Empty = skip. |
+| `smods.balatroSourcePath` | Absolute path to extracted Balatro Lua source to attach to `Lua.workspace.library`. Empty = skip. |
 | `smods.defaultAuthor` | Default author name pre-filled when scaffolding. |
 | `smods.symlinkModOnLaunch` | Symlink detected mod roots into `Mods/` on launch/reload; remove them on exit. Do not enable if your workspace is already inside the Mods folder. On Windows, requires Developer Mode or admin. |
 | `smods.autoReload` | Auto-reload Balatro when a `.lua`/`.json`/`.toml` file saves in a detected mod root. |

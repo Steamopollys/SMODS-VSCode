@@ -160,11 +160,24 @@ export class BalatroRuntime {
   private async _launch(solo: boolean): Promise<void> {
     const modsFolder = getModsFolder();
     const debugArmed = this.debugMode;
-    const direct = vscode.workspace.getConfiguration('smods')
-      .get<boolean>('launchWithoutSteam', false);
+    const cfg = vscode.workspace.getConfiguration('smods');
+    const direct = cfg.get<boolean>('launchWithoutSteam', false);
+    const userArgs = cfg.get<string[]>('launchArgs', []) ?? [];
+    // Direct launch needs `--disable-console` and a bare `-` for Lovely to
+    // hook correctly.
+    // Why `--disable-console`? Without it, the classic Lovely console window won't display anything
+    // So we fallback to the Love2d console with this arg.
+    // Why `-`? No idea why we need it, it's black magic.
+    const rawArgs = direct
+      ? ['--disable-console', '-', ...userArgs]
+      : userArgs;
+    const launchArgs = Array.from(new Set(
+      rawArgs.map(a => String(a)).filter(a => a.length > 0)
+    ));
     this.output.info(
       `Launching Balatro ${direct ? 'directly (no Steam)' : `via Steam (appid ${BALATRO_STEAM_ID})`}`
       + `${solo ? ' [solo]' : ''}${debugArmed ? ' [debug]' : ''}`
+      + `${launchArgs.length ? ` [args: ${launchArgs.join(' ')}]` : ''}`
     );
     if (modsFolder) { this.output.info(`Mods folder: ${modsFolder}`); }
 
@@ -198,7 +211,7 @@ export class BalatroRuntime {
             'Balatro executable not found. Set "smods.balatroExecutable" in settings.'
           );
         }
-        const child = cp.spawn(exe, [], {
+        const child = cp.spawn(exe, launchArgs, {
           cwd: path.dirname(exe),
           detached: true,
           stdio: 'ignore',
@@ -206,8 +219,11 @@ export class BalatroRuntime {
         });
         child.unref();
       } else {
+        const suffix = launchArgs.length
+          ? `//${encodeURIComponent(launchArgs.join(' '))}`
+          : '';
         await vscode.env.openExternal(
-          vscode.Uri.parse(`steam://rungameid/${BALATRO_STEAM_ID}`)
+          vscode.Uri.parse(`steam://rungameid/${BALATRO_STEAM_ID}${suffix}`)
         );
       }
       // Wait briefly for the process to appear, then start polling.

@@ -226,6 +226,34 @@ function commands.setPath(args)
     return { ok = true }
 end
 
+local LUA_BUILTINS = {
+    _G = true, _VERSION = true, assert = true, collectgarbage = true,
+    dofile = true, error = true, gcinfo = true, getfenv = true, getmetatable = true,
+    ipairs = true, load = true, loadfile = true, loadstring = true, module = true,
+    newproxy = true, next = true, pairs = true, pcall = true, print = true,
+    rawequal = true, rawget = true, rawlen = true, rawset = true, require = true,
+    select = true, setfenv = true, setmetatable = true, tonumber = true,
+    tostring = true, type = true, unpack = true, xpcall = true,
+    coroutine = true, debug = true, io = true, math = true, os = true,
+    package = true, string = true, table = true, bit = true, jit = true,
+    ffi = true, utf8 = true,
+    love = true, arg = true,
+}
+
+function commands.listGlobals()
+    local out = {}
+    for k, v in pairs(_G) do
+        if type(k) == 'string' and not LUA_BUILTINS[k] then
+            local t = type(v)
+            if t == 'table' then
+                out[#out + 1] = { key = k, type = t, preview = short_preview(v) }
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.key < b.key end)
+    return { globals = out }
+end
+
 function commands.listChildren(args)
     local path = args and args.path or '_G'
     local limit = args and args.limit or MAX_CHILDREN

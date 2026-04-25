@@ -2,7 +2,7 @@
   "name": "smods-tools",
   "displayName": "Smods Tools",
   "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "publisher": "Steamo",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -272,8 +272,14 @@
     "languages": [
       {
         "id": "lovely-patch",
-        "aliases": ["Lovely Patch", "lovely-patch"],
-        "filenamePatterns": ["**/lovely/*.toml", "**/*.lovely.toml"],
+        "aliases": [
+          "Lovely Patch",
+          "lovely-patch"
+        ],
+        "filenamePatterns": [
+          "**/lovely/*.toml",
+          "**/*.lovely.toml"
+        ],
         "icon": {
           "light": "./icons/lovely-patch.svg",
           "dark": "./icons/lovely-patch.svg"
@@ -343,6 +349,14 @@
           "default": false,
           "description": "When enabled, launch Balatro directly via its executable instead of Steam. Requires smods.balatroExecutable or a detectable Steam install path."
         },
+        "smods.launchArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra command-line arguments passed to Balatro on launch. Forwarded to argv when launching directly, or appended to the Steam URL (steam://rungameid/<id>//<args>) when launching via Steam."
+        },
         "smods.modsFolder": {
           "type": "string",
           "default": "",
@@ -357,6 +371,16 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically register SMODS type definitions with the Lua Language Server in Smods workspaces."
+        },
+        "smods.love2dLibraryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a Love2D API/source directory to attach to Lua.workspace.library. Leave empty to skip."
+        },
+        "smods.balatroSourcePath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to extracted Balatro Lua source to attach to Lua.workspace.library. Leave empty to skip."
         },
         "smods.defaultAuthor": {
           "type": "string",

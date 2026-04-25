@@ -2,6 +2,25 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.3.3]
+
+### Added
+- `smods.launchArgs` setting — string array of extra command-line arguments forwarded to Balatro on launch. Argv-spread when launching directly, appended to the Steam URL (`steam://rungameid/2379780//<args>`) otherwise.
+
+### Fixed
+- Direct launch (`smods.launchWithoutSteam=true`) now injects `--disable-console` and a bare `-` arg automatically. Without `--disable-console` the Lovely console window stays blank (falls back to the Love2D console); the `-` is required by Lovely's argv parsing. Both are deduped against any matching entry in `smods.launchArgs`.
+
+## [0.3.2]
+
+### Added
+- `smods.love2dLibraryPath` setting — absolute path to a Love2D API/source directory (e.g. a `love-api` stubs clone). Attached to `Lua.workspace.library` when non-empty and the path exists.
+- `smods.balatroSourcePath` setting — absolute path to extracted Balatro Lua source. Attached to `Lua.workspace.library` when non-empty and the path exists.
+
+### Changed
+- `autoAttachLuaTypes` now also attaches `smods-*/src` alongside `smods-*/lsp_def`. Ctrl-click on a SMODS symbol lands in real source when statically resolvable, falling back to the `---@meta` stubs otherwise.
+- Attach step no longer bails when SMODS is missing — the configured Love2D and Balatro paths still get attached (SMODS-missing is logged as a warning).
+- `autoAttachLuaTypes` also pins `Lua.runtime.version` to `LuaJIT` in workspace settings (Balatro runs on LuaJIT — 5.1 + JIT extensions). Prevents spurious Lua 5.4-only diagnostics and exposes `bit` / `ffi` / `jit` globals.
+
 ## [0.3.1]
 
 ### Added
@@ -44,7 +63,7 @@ All notable changes to the Smods Tools extension are documented here.
 - `Smods: Tail Balatro Log` starts tailing the Lovely log, feeding the Balatro Log panel.
 - Balatro Log panel (webview) — per-level filter chips (TRACE/DEBUG/INFO/WARN/ERROR/FATAL) matched against the first word of each line, text search, follow mode, clickable `file:line` links. Filter state (chips, query, follow) is persisted across panel reloads. Launching Balatro focuses this panel automatically.
 - `Smods: Bump Mod Version…` — SemVer patch/minor/major/prerelease quick-pick; rewrites only the `version` field.
-- `Smods: Package Mod as Zip…` — pure-Node ZIP of the mod folder with sensible excludes (`.git`, `node_modules`, `*.psd`, etc.), parallel file reads.
+- `Smods: Package Mod as Zip…` — ZIP of the mod folder, default excludes (`.git`, `.vscode`, `*.psd`, `*.aseprite`, `*.bak`, etc.).
 - Atlas preview webview — CodeLens on `atlas = '...'` opens a clickable sprite grid (zoom slider); clicking writes `pos = { x=, y= }` back to source. 30-s TTL cache.
 - Localization linter — CodeLens + diagnostics on `SMODS.<Kind>` blocks missing both inline `loc_txt` and a matching entry in `localization/*.lua`. Offers open-or-create stub in `en-us.lua`.
 - Calculate-context hover + completion — 45 `context.*` flags documented with summary, description, and example; active in `.lua` and `lovely-patch` files.
