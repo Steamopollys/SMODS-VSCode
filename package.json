@@ -2,7 +2,7 @@
   "name": "smods-tools",
   "displayName": "Smods Tools",
   "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "publisher": "Steamo",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -124,6 +124,11 @@
         "category": "Smods"
       },
       {
+        "command": "smods.packAtlas",
+        "title": "Smods: Pack PNGs into Atlas…",
+        "category": "Smods"
+      },
+      {
         "command": "smods.newVoucher",
         "title": "Smods: New Voucher…",
         "category": "Smods"
@@ -213,6 +218,11 @@
           "command": "smods.newMod",
           "when": "explorerResourceIsFolder",
           "group": "smods@1"
+        },
+        {
+          "command": "smods.packAtlas",
+          "when": "explorerResourceIsFolder",
+          "group": "smods@2"
         }
       ],
       "commandPalette": [
@@ -414,6 +424,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically reveal the Balatro Debug panel when the debug bridge connects."
+        },
+        "smods.atlasPacker.autoRepack": {
+          "type": "boolean",
+          "default": false,
+          "description": "After running Smods: Pack PNGs into Atlas, watch the source folder and repack on PNG add/remove/change. Cleared when VS Code reloads or the extension deactivates."
         }
       }
     },
@@ -445,6 +460,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.39",
+    "@types/pngjs": "^6.0.5",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -455,5 +471,8 @@
     "typescript-eslint": "^8.0.0",
     "webpack": "^5.90.0",
     "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
   }
 }

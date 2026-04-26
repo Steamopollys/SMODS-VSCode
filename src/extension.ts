@@ -9,6 +9,7 @@ import { registerAutoReload } from './autoReload';
 import { registerVersionBump } from './versionBump';
 import { registerPackageCommand } from './package';
 import { registerAtlasPreview } from './atlasPreview';
+import { registerAtlasPacker } from './atlasPacker';
 import { registerLocalization } from './localization';
 import { registerContextHover } from './contextHover';
 import { registerLovelyHover } from './lovelyHover';
@@ -42,6 +43,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerVersionBump(context, output);
   registerPackageCommand(context, output);
   registerAtlasPreview(context);
+  registerAtlasPacker(context, output);
   registerLocalization(context);
   registerContextHover(context, output);
   registerLovelyHover(context);

@@ -2,7 +2,17 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
-## [0.3.3]
+## [0.4.0]
+
+### Added
+- `Smods: Pack PNGs into Atlas…` command. Pick any folder (intended to live outside `assets/`). The packer reads its PNGs, validates uniform dimensions, packs them into a `cols × rows` grid (cols = ceil(sqrt(n))), writes the result to `assets/1x/<key>.png`, and inserts a `SMODS.Atlas{}` block plus a `local POS = { … }` map of every sprite's `{x,y}` cell at cursor or as a new file under `atlases/<key>.lua`. Default key comes from the manifest `prefix`. Also available from explorer right-click on any folder.
+- 2x via subfolder: if the picked folder contains a `1x/` subdir, the packer reads sprites from `<picked>/1x/` and (optionally) `<picked>/2x/`, packing both atlases under the same `<key>`. A warning is emitted when the 1x and 2x sprite sets differ in name or count, since the `POS` lookup is computed from the 1x grid.
+- `smods.atlasPacker.autoRepack` setting (default `false`) — installs an `fs.watch` on each packed source folder (1x, and 2x when present) after a successful pack and re-runs the pack 300 ms after any PNG add/remove/change. Watchers cleared on extension deactivate.
+
+### Changed
+- New runtime dependency: `pngjs`.
+
+
 
 ### Added
 - `smods.launchArgs` setting — string array of extra command-line arguments forwarded to Balatro on launch. Argv-spread when launching directly, appended to the Steam URL (`steam://rungameid/2379780//<args>`) otherwise.
@@ -17,7 +27,7 @@ All notable changes to the Smods Tools extension are documented here.
 - `smods.balatroSourcePath` setting — absolute path to extracted Balatro Lua source. Attached to `Lua.workspace.library` when non-empty and the path exists.
 
 ### Changed
-- `autoAttachLuaTypes` now also attaches `smods-*/src` alongside `smods-*/lsp_def`. Ctrl-click on a SMODS symbol lands in real source when statically resolvable, falling back to the `---@meta` stubs otherwise.
+- `autoAttachLuaTypes` now also attaches `smods-*/src` alongside `smods-*/lsp_def`. Ctrl-click on a SMODS symbol lands in real source when statically resolvable; otherwise it lands in the `---@meta` stubs.
 - Attach step no longer bails when SMODS is missing — the configured Love2D and Balatro paths still get attached (SMODS-missing is logged as a warning).
 - `autoAttachLuaTypes` also pins `Lua.runtime.version` to `LuaJIT` in workspace settings (Balatro runs on LuaJIT — 5.1 + JIT extensions). Prevents spurious Lua 5.4-only diagnostics and exposes `bit` / `ffi` / `jit` globals.
 
@@ -56,11 +66,11 @@ All notable changes to the Smods Tools extension are documented here.
 - `Smods: New Mod…` command with manifest, `main.lua`, localization stub, optional atlas and Lovely folders.
 - Scaffold commands for Joker, Consumable, Voucher, Deck (Back), Edition, Seal, Blind, Tag, Booster Pack, Enhancement, Shader, Sound, Challenge. When a Lua file is already open, each command offers to insert at cursor instead of creating a new file.
 - JSON schema + per-field diagnostics for Smods mod manifests, including dependency resolution against installed mods (15-s TTL cache).
-- Lovely `patches.toml` support — built-in TOML parser and diagnostics (no external extension required) covering `[manifest]`, `[[patches]]`, `pattern`/`regex`/`copy`/`module` types; required-field checks, type validation, and `position` enum enforcement. Hover any key or section header for its description. `payload` strings are syntax-highlighted as Lua and support full Lua Language Server hover and IntelliSense completions inside the string.
+- Lovely `patches.toml` support — built-in TOML parser and diagnostics (no external extension required) for `[manifest]`, `[[patches]]`, and the `pattern`/`regex`/`copy`/`module` payload types. Checks required fields, validates types, enforces the `position` enum. Hover any key or section header for its description. `payload` strings are syntax-highlighted as Lua and support full Lua Language Server hover and IntelliSense completions inside the string.
 - `Smods: Launch Balatro` and `Smods: Reload Mods (Alt+F5)` with cross-platform keystroke injection.
 - `Smods: Launch Balatro (Solo)` — launches Balatro with only Steamodded, Lovely, and the workspace mod active. All other mods are moved to a sibling stash folder beside `Mods/` and restored automatically on exit. Available as a `Solo` status bar button.
 - Auto-reload on save (`smods.autoReload`) — debounced Alt+F5 when a `.lua`/`.json`/`.toml` in a detected mod root saves while Balatro runs. Status-bar toggle.
-- `Smods: Tail Balatro Log` starts tailing the Lovely log, feeding the Balatro Log panel.
+- `Smods: Tail Balatro Log` tails the Lovely log; output goes to the Balatro Log panel.
 - Balatro Log panel (webview) — per-level filter chips (TRACE/DEBUG/INFO/WARN/ERROR/FATAL) matched against the first word of each line, text search, follow mode, clickable `file:line` links. Filter state (chips, query, follow) is persisted across panel reloads. Launching Balatro focuses this panel automatically.
 - `Smods: Bump Mod Version…` — SemVer patch/minor/major/prerelease quick-pick; rewrites only the `version` field.
 - `Smods: Package Mod as Zip…` — ZIP of the mod folder, default excludes (`.git`, `.vscode`, `*.psd`, `*.aseprite`, `*.bak`, etc.).

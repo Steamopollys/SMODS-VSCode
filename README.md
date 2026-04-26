@@ -15,11 +15,12 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
 - **Auto-reload on save** — while Balatro runs, saving a `.lua`/`.json`/`.toml` in a detected mod root triggers a debounced reload. Toggle via status bar or `smods.autoReload`.
 - **Balatro Log panel** — dedicated webview with per-level filter chips (TRACE/DEBUG/INFO/WARN/ERROR/FATAL) matched against the first word of each line, text search, follow mode, and clickable `file:line` links that jump to the source. Filter state (active chips, query, follow) is persisted across panel reloads.
 - **Atlas preview & sprite picker** — CodeLens above every `atlas = '...'` opens a clickable grid of the atlas image. Click a cell to write `pos = { x=, y= }` back to source.
-- **Localization linter** — flags `SMODS.<Kind>` blocks without an `loc_txt` nor a matching entry in `localization/*.lua`. CodeLens jumps to the entry or creates a stub in `en-us.lua`.
+- **Atlas packer** — `Smods: Pack PNGs into Atlas…` packs a folder of equally-sized PNGs (intended to live outside `assets/`) into `assets/1x/<key>.png` and inserts a ready-to-use `SMODS.Atlas{}` block plus a `local POS = { ... }` map of every sprite's `{x,y}`. To also produce a 2x atlas, lay your source folder out as `<picked>/1x/` and `<picked>/2x/` with matching filenames; both are packed under the same `<key>`. Right-click any folder in the explorer to pack it directly. Optional `smods.atlasPacker.autoRepack` setting watches the 1x (and 2x when present) source folder and re-emits the atlas on add/remove.
+- **Localization linter** — flags `SMODS.<Kind>` blocks with no inline `loc_txt` and no matching entry in `localization/*.lua`. CodeLens jumps to the entry or creates a stub in `en-us.lua`.
 - **Calculate-context hover + completion** — hover any `context.<flag>` in a `calculate` function for a description and example. Auto-completes all 45 documented flags.
 - **SMODS API quick-search** — `Smods: Open SMODS API Reference…` fuzzy-searches every class/function in Steamodded's `lsp_def/` and jumps to the definition.
-- **Version bump + package** — `Smods: Bump Mod Version…` rewrites the manifest's SemVer (patch/minor/major/prerelease). `Smods:Package  Mod as Zip…` zips the mod with default excludes (`.git`, etc.).
-- **Auto-symlink mod on launch** — optionally symlinks your mod folder into the Balatro `Mods/` directory before launch or reload, then removes it when Balatro exits or VS Code closes. Lets you develop anywhere on disk without manually copying files. Enable via `smods.symlinkModOnLaunch`.
+- **Version bump + package** — `Smods: Bump Mod Version…` rewrites the manifest's SemVer (patch/minor/major/prerelease). `Smods: Package Mod as Zip…` zips the mod with default excludes (`.git`, etc.).
+- **Auto-symlink mod on launch** — optionally symlinks your mod folder into the Balatro `Mods/` directory before launch or reload, then removes it when Balatro exits or VS Code closes. You can keep your mod folder anywhere on disk; no manual copying. Enable via `smods.symlinkModOnLaunch`.
 
 ## Requirements
 
@@ -45,6 +46,7 @@ VSCode support for [Steamodded](https://github.com/Steamodded/smods).
 | `smods.autoReloadDelay` | Debounce window (ms) between last save and the auto-reload. Default 500. |
 | `smods.debugPort` | Port the debug bridge listens on. Bridge scans +10 if busy. Default 43278. |
 | `smods.debugAutoOpenPanel` | Auto-reveal the Debug panel on connect. Default true. |
+| `smods.atlasPacker.autoRepack` | After packing, watch the source folder and repack on PNG add/remove. Default false. |
 
 ## Commands
 
@@ -64,6 +66,7 @@ All commands live under the "Smods:" prefix in the Command Palette.
 | `Bump Mod Version…` | SemVer patch/minor/major/prerelease bump on the manifest. |
 | `Package Mod as Zip…` | Zip the mod for distribution (`<id>-<version>.zip`). |
 | `Open SMODS API Reference…` | Fuzzy search Steamodded classes/functions and jump to definition. |
+| `Pack PNGs into Atlas…` | Combine a folder of equally-sized PNGs into one atlas PNG plus a `SMODS.Atlas{}` snippet and `POS` lookup table. Available from the explorer right-click on a folder. |
 | `Toggle Debug Mode` | Arm/disarm the debug bridge. Applies on next launch. |
 | `Pause Engine` / `Resume Engine` | Freeze or resume `love.update` (F6 / Shift+F6). |
 | `Eval Lua in Balatro…` | Run Lua in the running process. |
