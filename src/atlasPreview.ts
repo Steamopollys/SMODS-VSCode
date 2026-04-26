@@ -262,33 +262,68 @@ function renderHtml(
   imgSrc: string, info: AtlasInfo, startX: number, startY: number
 ): string {
   const scale = info.imageScale ?? 1;
+  const frames = Math.max(1, info.frames ?? 1);
+  const defaultMode = frames > 1 ? 'anim' : 'static';
   return `<!doctype html><html><head><meta charset="utf-8">
 <style>
   body { margin: 0; padding: 1em; font: 13px var(--vscode-font-family); color: var(--vscode-foreground); }
-  .info { margin-bottom: 0.6em; opacity: 0.8; }
+  .info { margin-bottom: 0.6em; opacity: 0.8; display: flex; flex-wrap: wrap; gap: 0.8em; align-items: center; }
+  .info > * { white-space: nowrap; }
+  .anim-controls[hidden] { display: none; }
+  button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+           border: 1px solid var(--vscode-button-border, transparent); padding: 2px 8px; cursor: pointer; }
+  button:hover { background: var(--vscode-button-secondaryHoverBackground); }
   .wrap { position: relative; display: inline-block; }
+  .wrap[data-mode="anim"] img { visibility: hidden; }
   img { display: block; image-rendering: pixelated; max-width: none; }
   .cell { position: absolute; border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; cursor: pointer; }
   .cell:hover { border-color: #3af; background: rgba(51,170,255,0.15); }
   .cell.sel { border-color: #ff0; background: rgba(255,255,0,0.2); }
   .cell .lbl { position: absolute; bottom: 0; right: 2px; font-size: 10px; color: #fff;
                text-shadow: 0 0 2px #000; }
-  .zoom { margin-left: 1em; }
+  .wrap[data-mode="anim"] .cell { display: none; }
+  #anim { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; display: none; }
+  .wrap[data-mode="anim"] #anim { display: block; }
 </style></head><body>
 <div class="info">
-  <b>${info.key}</b> — ${info.path} — ${info.px}×${info.py} px, ${info.frames} frame(s)
-  <span class="zoom">zoom: <input id="z" type="range" min="1" max="8" value="2"/></span>
+  <span><b>${info.key}</b> — ${info.path} — ${info.px}×${info.py} px, ${frames} frame(s)</span>
+  <span>zoom: <input id="z" type="range" min="1" max="8" value="2"/></span>
+  <span>
+    mode:
+    <select id="mode">
+      <option value="static"${defaultMode === 'static' ? ' selected' : ''}>Static grid</option>
+      <option value="anim"${defaultMode === 'anim' ? ' selected' : ''}${frames > 1 ? '' : ' disabled'}>Animate (${frames} frame${frames === 1 ? '' : 's'})</option>
+    </select>
+  </span>
+  <span class="anim-controls"${defaultMode === 'anim' ? '' : ' hidden'}>
+    fps: <input id="fps" type="range" min="1" max="60" value="12"/>
+    <span id="fpsLabel">12</span>
+    <button id="play" title="Pause / play">⏸</button>
+  </span>
 </div>
-<div class="wrap" id="wrap">
+<div class="wrap" id="wrap" data-mode="${defaultMode}">
   <img id="img" src="${imgSrc}" />
+  <canvas id="anim"></canvas>
 </div>
 <script>
 const vscode = acquireVsCodeApi();
 const img = document.getElementById('img');
 const wrap = document.getElementById('wrap');
 const z = document.getElementById('z');
+const mode = document.getElementById('mode');
+const fps = document.getElementById('fps');
+const fpsLabel = document.getElementById('fpsLabel');
+const playBtn = document.getElementById('play');
+const animControls = document.querySelector('.anim-controls');
+const canvas = document.getElementById('anim');
+const ctx = canvas.getContext('2d');
+
 const PX = ${info.px} * ${scale}, PY = ${info.py} * ${scale};
+const FRAMES = ${frames};
 let sel = { x: ${startX}, y: ${startY} };
+let frame = 0;
+let playing = true;
+let timer = null;
 
 function layout() {
   const zoom = Number(z.value);
@@ -314,16 +349,77 @@ function layout() {
       d.appendChild(lbl);
       d.onclick = () => {
         sel = { x, y };
+        frame = 0;
         vscode.postMessage({ type: 'pick', x, y });
         layout();
+        sizeCanvas();
+        if (mode.value === 'anim') drawFrame();
       };
       wrap.appendChild(d);
     }
   }
+  sizeCanvas();
 }
-img.onload = layout;
-z.oninput = layout;
-if (img.complete) layout();
+
+function sizeCanvas() {
+  const zoom = Number(z.value);
+  canvas.width = PX;
+  canvas.height = PY;
+  canvas.style.width = (PX * zoom) + 'px';
+  canvas.style.height = (PY * zoom) + 'px';
+}
+
+function drawFrame() {
+  const cols = Math.floor(img.naturalWidth / PX);
+  const stride = Math.max(1, cols);
+  const f = frame % FRAMES;
+  const linear = sel.y * stride + sel.x + f;
+  const sx = (linear % stride) * PX;
+  const sy = Math.floor(linear / stride) * PY;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, sx, sy, PX, PY, 0, 0, PX, PY);
+  }
+}
+
+function tick() {
+  if (!playing) return;
+  frame = (frame + 1) % FRAMES;
+  drawFrame();
+}
+
+function applyMode() {
+  wrap.dataset.mode = mode.value;
+  if (mode.value === 'anim') {
+    animControls.hidden = false;
+    sizeCanvas();
+    drawFrame();
+    restartTimer();
+  } else {
+    animControls.hidden = true;
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+}
+
+function restartTimer() {
+  if (timer) { clearInterval(timer); timer = null; }
+  if (mode.value !== 'anim' || !playing) return;
+  const interval = Math.max(16, 1000 / Number(fps.value));
+  timer = setInterval(tick, interval);
+}
+
+mode.onchange = applyMode;
+fps.oninput = () => { fpsLabel.textContent = fps.value; restartTimer(); };
+playBtn.onclick = () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸' : '▶';
+  restartTimer();
+};
+z.oninput = () => { layout(); if (mode.value === 'anim') sizeCanvas(); };
+
+img.onload = () => { layout(); applyMode(); };
+if (img.complete) { layout(); applyMode(); }
 new ResizeObserver(layout).observe(img);
 </script></body></html>`;
 }

@@ -2,6 +2,14 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.5.0]
+
+### Added
+- Atlas preview gained an animation mode. The preview webview now exposes a `mode` dropdown (Static grid / Animate) plus an FPS slider (1–60, default 12) and a play/pause button. When a `SMODS.Atlas` block declares `frames > 1`, animate is the default mode and a `<canvas>` cycles `frames` cells starting from the selected `pos`. Clicking a cell while in animate mode resets the frame counter to that new origin so you can preview any joker's animation by clicking its first cell.
+
+### Changed
+- Atlas preview HTML restructured: the cell grid and animation canvas now share the same `.wrap` and toggle via `data-mode`. Cell selection still writes `pos = { x = …, y = … }` back to source in static mode.
+
 ## [0.4.0]
 
 ### Added
