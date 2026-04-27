@@ -91,6 +91,7 @@ function restoreBlacklist(
 
 export class BalatroRuntime {
   private pollTimer?: NodeJS.Timeout;
+  private launching = false;
   private soloMode = false;
   private soloBlacklistOriginal: string | null = null;
   private debugMode = false;
@@ -104,7 +105,7 @@ export class BalatroRuntime {
   constructor(private output: vscode.LogOutputChannel) {}
 
   isRunning(): boolean {
-    return !!this.pollTimer;
+    return !!this.pollTimer || this.launching;
   }
 
   setDebugAgent(agent: DebugAgent): void { this.debugAgent = agent; }
@@ -203,6 +204,7 @@ export class BalatroRuntime {
       }
     }
 
+    this.launching = true;
     try {
       if (direct) {
         const exe = defaultBalatroExecutable();
@@ -226,18 +228,26 @@ export class BalatroRuntime {
           vscode.Uri.parse(`steam://rungameid/${BALATRO_STEAM_ID}${suffix}`)
         );
       }
-      // Wait briefly for the process to appear, then start polling.
-      await new Promise(r => setTimeout(r, 3000));
       this.soloMode = solo;
-      await this.startPolling();
+      // Open the log immediately so users see lovely output during loading,
+      // even if process detection takes a while.
+      await vscode.commands.executeCommand('smods.showLog');
+      await vscode.commands.executeCommand('smodsLogView.focus');
+      const detected = await this.startPolling();
+      if (!detected) {
+        if (solo && modsFolder) { restoreBlacklist(modsFolder, this.soloBlacklistOriginal, this.output); }
+        if (this.debugActiveForRun && modsFolder) {
+          this.debugAgent?.uninstallBridge(modsFolder);
+          this.debugActiveForRun = false;
+        }
+        return;
+      }
       const extra = this.debugActiveForRun ? ' [debug]' : '';
       vscode.window.showInformationMessage(
         solo
           ? `Launched Balatro (solo — other mods disabled)${extra}.`
           : `Launched Balatro${extra}.`
       );
-      await vscode.commands.executeCommand('smods.showLog');
-      await vscode.commands.executeCommand('smodsLogView.focus');
       if (this.debugActiveForRun && this.debugAgent) {
         void this.debugAgent.connect().then(async ok => {
           if (ok && vscode.workspace.getConfiguration('smods').get<boolean>('debugAutoOpenPanel', true)) {
@@ -253,22 +263,54 @@ export class BalatroRuntime {
         this.debugActiveForRun = false;
       }
       vscode.window.showErrorMessage(`Failed to launch Balatro: ${err}`);
+    } finally {
+      this.launching = false;
     }
   }
 
-  private async startPolling(): Promise<void> {
-    const alive = await isBalatroProcessRunning();
-    await vscode.commands.executeCommand(
-      'setContext', 'smods.balatroRunning', alive
-    );
-    if (!alive) {return;}
+  private async startPolling(): Promise<boolean> {
+    // Poll for the process to appear for up to 30 s. Steam can be slow to
+    // spawn Balatro on cold start; the previous flat 3 s sleep + single check
+    // would silently miss late arrivals and never arm the exit watcher.
+    const APPEAR_TIMEOUT_MS = 30_000;
+    const APPEAR_INTERVAL_MS = 500;
+    const start = Date.now();
+    let alive = false;
+    while (Date.now() - start < APPEAR_TIMEOUT_MS) {
+      if (await isBalatroProcessRunning()) { alive = true; break; }
+      await new Promise(r => setTimeout(r, APPEAR_INTERVAL_MS));
+    }
+    if (!alive) {
+      this.output.warn(
+        `Balatro did not appear within ${APPEAR_TIMEOUT_MS / 1000}s — launch may have failed. ` +
+        `Check the Balatro Log panel.`
+      );
+      vscode.window.showWarningMessage(
+        'Balatro did not start. Check the Balatro Log panel for details.'
+      );
+      return false;
+    }
+
+    await vscode.commands.executeCommand('setContext', 'smods.balatroRunning', true);
     this._onDidChangeState.fire(true);
+    const aliveSince = Date.now();
     this.pollTimer = setInterval(async () => {
       const still = await isBalatroProcessRunning();
       if (!still) {
         clearInterval(this.pollTimer!);
         this.pollTimer = undefined;
-        this.output.info('Balatro exited.');
+        const lifetimeMs = Date.now() - aliveSince;
+        if (lifetimeMs < 5000) {
+          this.output.warn(
+            `Balatro exited after ${lifetimeMs}ms — likely a load-time crash. ` +
+            `Check the Balatro Log panel for the lovely log.`
+          );
+          vscode.window.showWarningMessage(
+            'Balatro crashed shortly after launch. Open the Balatro Log panel to diagnose.'
+          );
+        } else {
+          this.output.info('Balatro exited.');
+        }
         removeModSymlinks(this.output);
           if (this.soloMode) {
             const modsFolder = getModsFolder();
@@ -288,6 +330,7 @@ export class BalatroRuntime {
         this._onDidChangeState.fire(false);
       }
     }, 2000);
+    return true;
   }
 
   /**

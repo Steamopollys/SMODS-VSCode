@@ -21,6 +21,10 @@ class LogViewProvider implements vscode.WebviewViewProvider {
 
   constructor(tailer: LogTailer) {
     tailer.onLine(line => this.push(line));
+    tailer.onReset(() => {
+      this.buffer = [];
+      this.view?.webview.postMessage({ type: 'clear' });
+    });
   }
 
   private push(line: string): void {
@@ -176,6 +180,8 @@ window.addEventListener('message', e => {
   } else if (m.type === 'batch') {
     for (const b of m.lines) appendLine(b.line, b.level);
     if (followCb.checked && linesEl.lastChild) linesEl.lastChild.scrollIntoView({ block: 'end' });
+  } else if (m.type === 'clear') {
+    linesEl.innerHTML = '';
   }
 });
 

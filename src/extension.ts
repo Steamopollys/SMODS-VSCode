@@ -10,6 +10,7 @@ import { registerVersionBump } from './versionBump';
 import { registerPackageCommand } from './package';
 import { registerAtlasPreview } from './atlasPreview';
 import { registerAtlasPacker } from './atlasPacker';
+import { registerShaderPreview } from './shaderPreview';
 import { registerLocalization } from './localization';
 import { registerContextHover } from './contextHover';
 import { registerLovelyHover } from './lovelyHover';
@@ -52,12 +53,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerLogView(context, tailer);
   registerApiSearch(context, output);
 
+  // Stop tailing when the game exits so leftover watchers don't fire on the
+  // next launch's freshly-truncated log file.
+  context.subscriptions.push(
+    runtime.onDidChangeState(running => { if (!running) { void tailer.stop(); } })
+  );
+
   const debugAgent = new DebugAgent(context, output);
   _debugAgent = debugAgent;
   runtime.setDebugAgent(debugAgent);
   runtime.setDebugMode(context.workspaceState.get<boolean>(DEBUG_MODE_KEY, false));
   registerDebugView(context, debugAgent);
   registerDebugCommands(context, runtime, debugAgent);
+  registerShaderPreview(context, debugAgent, output);
 
   // Status bar: quick access to launch/stop + reload
   const launchItem = vscode.window.createStatusBarItem(

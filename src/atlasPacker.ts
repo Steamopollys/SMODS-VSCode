@@ -242,7 +242,7 @@ async function runPack(
   }
 
   const initialUri = hint ?? vscode.Uri.file(modRoot);
-  const hintIsDir = hint && fs.existsSync(hint.fsPath) && fs.statSync(hint.fsPath).isDirectory();
+  const hintIsDir = !!(hint && isDir(hint.fsPath));
   const pickedDir = hintIsDir
     ? hint!.fsPath
     : await pickSourceFolder(initialUri);

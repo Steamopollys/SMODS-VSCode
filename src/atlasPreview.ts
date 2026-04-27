@@ -194,7 +194,7 @@ class AtlasCodeLensProvider implements vscode.CodeLensProvider {
           docUri: doc.uri.toString(),
           atlasInfo: info,
           posRange: b.posRange ? {
-            start: { line: b.posRange.start.line, char: b.posRange.start.character },
+            start: { line: b.posRange.start.line, character: b.posRange.start.character },
             end:   { line: b.posRange.end.line,   character: b.posRange.end.character }
           } : undefined,
           posX: b.posX, posY: b.posY
@@ -208,7 +208,7 @@ class AtlasCodeLensProvider implements vscode.CodeLensProvider {
 interface PreviewArgs {
   docUri: string;
   atlasInfo: AtlasInfo;
-  posRange?: { start: { line: number; char: number };
+  posRange?: { start: { line: number; character: number };
                end:   { line: number; character: number } };
   posX?: number;
   posY?: number;
@@ -249,7 +249,7 @@ async function openPreview(
       ?? await vscode.workspace.openTextDocument(vscode.Uri.parse(args.docUri));
     const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
     const range = new vscode.Range(
-      args.posRange.start.line, args.posRange.start.char,
+      args.posRange.start.line, args.posRange.start.character,
       args.posRange.end.line, args.posRange.end.character
     );
     await editor.edit(b => b.replace(range, `pos = { x = ${x}, y = ${y} }`));

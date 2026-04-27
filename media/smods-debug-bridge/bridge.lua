@@ -420,6 +420,180 @@ function commands.saveStateLoad(args)
     return { slot = slot, ok = true }
 end
 
+---------------------------------------------------------------------------
+-- Shader preview
+---------------------------------------------------------------------------
+
+local SHADER_PREVIEW_AREAS = {
+    'hand', 'jokers', 'consumeables',
+    'shop_jokers', 'shop_vouchers', 'shop_booster',
+    'pack_cards', 'play', 'deck', 'discard',
+}
+
+local function shader_preview_areas()
+    local out = {}
+    for _, name in ipairs(SHADER_PREVIEW_AREAS) do
+        if G[name] then out[#out + 1] = G[name] end
+    end
+    return out
+end
+
+local function shader_preview_revert_card(c)
+    if not c or not c._smods_preview_state then return false end
+    local s = c._smods_preview_state
+    pcall(function() c:set_edition(s.prev_edition, true, true) end)
+    G.SHADERS[s.user_key] = s.saved_shader
+    G.P_CENTERS[s.edition_key] = nil
+    if G.P_CENTER_POOLS and G.P_CENTER_POOLS.Edition then
+        for i = #G.P_CENTER_POOLS.Edition, 1, -1 do
+            local v = G.P_CENTER_POOLS.Edition[i]
+            if v and v.key == s.edition_key then
+                table.remove(G.P_CENTER_POOLS.Edition, i)
+            end
+        end
+    end
+    c._smods_preview_state = nil
+    return true
+end
+
+local function shader_preview_revert_all()
+    local count = 0
+    for _, area in ipairs(shader_preview_areas()) do
+        if area.cards then
+            for _, c in ipairs(area.cards) do
+                if shader_preview_revert_card(c) then count = count + 1 end
+            end
+        end
+    end
+    return count
+end
+
+local function shader_preview_pick_target()
+    for _, area in ipairs(shader_preview_areas()) do
+        if area.highlighted and area.highlighted[1] then
+            return area.highlighted[1]
+        end
+    end
+    if G.CONTROLLER then
+        if G.CONTROLLER.dragging and G.CONTROLLER.dragging.target then
+            return G.CONTROLLER.dragging.target
+        end
+        if G.CONTROLLER.hovering and G.CONTROLLER.hovering.target then
+            return G.CONTROLLER.hovering.target
+        end
+        if G.CONTROLLER.focused and G.CONTROLLER.focused.target then
+            return G.CONTROLLER.focused.target
+        end
+    end
+    return nil
+end
+
+function commands.applyPreviewShader(args)
+    if not (G and G.CONTROLLER and G.SHADERS and G.P_CENTERS and G.P_CENTER_POOLS) then
+        return nil, 'engine not ready'
+    end
+    if type(args) ~= 'table' or type(args.source) ~= 'string' or args.source == '' then
+        return nil, 'missing source'
+    end
+    local user_key = type(args.userKey) == 'string' and args.userKey or 'tmp'
+    user_key = user_key:gsub('[^%w_]', '_')
+    local edition_key = 'e_' .. user_key
+
+    local ok, sh = pcall(love.graphics.newShader, args.source)
+    if not ok then return nil, 'compile error: ' .. tostring(sh) end
+
+    local target = shader_preview_pick_target()
+    if not target or not target.set_edition then
+        return nil, 'no selected card (click one to lift it first)'
+    end
+
+    -- Drop overrides on every other card so only one is active at a time.
+    shader_preview_revert_all()
+
+    -- The send-target list is the parsed vec2 extern names from the user
+    -- shader, plus the shader key itself. The custom draw pcalls each so
+    -- uniforms LÖVE optimized away don't crash sprite.lua's send.
+    local send_names = {}
+    if type(args.vec2Names) == 'table' then
+        for _, n in ipairs(args.vec2Names) do
+            if type(n) == 'string' then send_names[#send_names + 1] = n end
+        end
+    end
+    local seen = {}
+    for _, n in ipairs(send_names) do seen[n] = true end
+    if not seen[user_key] then send_names[#send_names + 1] = user_key end
+
+    local function preview_draw(self, card)
+        local shader = G.SHADERS[self.shader]
+        local sargs = card.ARGS and card.ARGS.send_to_shader
+        if shader and sargs then
+            for _, n in ipairs(send_names) do
+                pcall(function() shader:send(n, sargs) end)
+            end
+        end
+        pcall(function() card.children.center:draw_shader(self.shader, nil, nil) end)
+        if card.children.front then
+            local hide = false
+            if card.should_hide_front then
+                local hok, h = pcall(function() return card:should_hide_front() end)
+                if hok then hide = h end
+            end
+            if not hide then
+                pcall(function() card.children.front:draw_shader(self.shader, nil, nil) end)
+            end
+        end
+    end
+
+    local prev_edition_key = target.edition and target.edition.key or nil
+    local saved_shader = G.SHADERS[user_key]
+
+    G.SHADERS[user_key] = sh
+    local edition_def = {
+        key = edition_key,
+        shader = user_key,
+        config = {},
+        set = 'Edition',
+        weight = 0,
+        in_shop = false,
+        discovered = true,
+        unlocked = true,
+        draw = preview_draw,
+    }
+    G.P_CENTERS[edition_key] = edition_def
+    table.insert(G.P_CENTER_POOLS.Edition, edition_def)
+
+    local apply_ok, apply_err = pcall(function()
+        target:set_edition(edition_key, true, true)
+    end)
+    if not apply_ok then
+        G.SHADERS[user_key] = saved_shader
+        G.P_CENTERS[edition_key] = nil
+        for i = #G.P_CENTER_POOLS.Edition, 1, -1 do
+            local v = G.P_CENTER_POOLS.Edition[i]
+            if v and v.key == edition_key then
+                table.remove(G.P_CENTER_POOLS.Edition, i)
+            end
+        end
+        return nil, 'set_edition failed: ' .. tostring(apply_err)
+    end
+
+    target._smods_preview_state = {
+        user_key = user_key,
+        edition_key = edition_key,
+        saved_shader = saved_shader,
+        prev_edition = prev_edition_key,
+    }
+
+    local label = (target.config and target.config.center and target.config.center.key)
+        or tostring(target)
+    return { applied = true, label = label }
+end
+
+function commands.revertPreviewShaders()
+    local count = shader_preview_revert_all()
+    return { reverted = count }
+end
+
 function commands.saveStateList()
     local slots = {}
     for _, v in ipairs(SAVE_SLOTS) do
@@ -533,7 +707,16 @@ end
 
 local function accept_new_client()
     if not state.server then return end
-    local new_client = state.server:accept()
+    -- Re-assert non-blocking each tick: if any other mod or the LÖVE host
+    -- toggles the listener's timeout, accept() can otherwise block the main
+    -- thread and freeze the game at the last drawn frame.
+    pcall(state.server.settimeout, state.server, 0)
+    local ok, new_client_or_err = pcall(state.server.accept, state.server)
+    if not ok then
+        log_warn('accept failed: ' .. tostring(new_client_or_err))
+        return
+    end
+    local new_client = new_client_or_err
     if not new_client then return end
     new_client:settimeout(0)
     if state.client then pcall(state.client.close, state.client) end
@@ -567,8 +750,13 @@ local function drain_dp_logs()
     state.dp_log_cursor = current
 end
 
+local first_poll_logged = false
 poll = function()
     if not state.server then return end
+    if not first_poll_logged then
+        first_poll_logged = true
+        print('[smods-debug-bridge] bridge: first poll')
+    end
     accept_new_client()
     drain_socket()
     drain_dp_logs()
@@ -582,14 +770,13 @@ local function install_update_hook()
     if not love or not love.update then return end
     if love.update == state.wrapped_update then return end
 
+    -- Capture whatever love.update is now and always call it. If another mod
+    -- wraps love.update after us we silently lose the hook for that frame —
+    -- the previous "re-install + re-enter" approach caused infinite recursion
+    -- when DebugPlus / Lovely runtime patches re-wrapped love.update after us.
     local original = love.update
     local wrapped
     wrapped = function(dt)
-        if love.update ~= wrapped then
-            state.wrapped_update = nil
-            install_update_hook()
-            return love.update(dt)
-        end
         poll()
         if state.paused then
             if state.step_frames <= 0 then return end
@@ -608,11 +795,6 @@ local function install_draw_hook()
     local original = love.draw
     local wrapped
     wrapped = function()
-        if love.draw ~= wrapped then
-            state.wrapped_draw = nil
-            install_draw_hook()
-            return love.draw()
-        end
         return original()
     end
     state.wrapped_draw = wrapped
@@ -681,10 +863,12 @@ end
 
 function M.start(root)
     root = root or ''
+    print('[smods-debug-bridge] bridge: M.start root=' .. tostring(root))
     if not socket then
         print('[smods-debug-bridge] luasocket missing; bridge disabled')
         return
     end
+    print('[smods-debug-bridge] bridge: socket ok')
 
     local json_chunk, load_err = loadfile(root .. 'json.lua')
     if not json_chunk then
@@ -692,8 +876,10 @@ function M.start(root)
         return
     end
     json = json_chunk()
+    print('[smods-debug-bridge] bridge: json loaded')
 
     register_with_debugplus()
+    print('[smods-debug-bridge] bridge: debugplus registered')
 
     local preferred = read_port_override(root) or DEFAULT_PORT
     local server, port_or_err = bind_listener(preferred)
@@ -707,6 +893,7 @@ function M.start(root)
 
     install_update_hook()
     install_draw_hook()
+    print('[smods-debug-bridge] bridge: hooks installed')
 end
 
 return M

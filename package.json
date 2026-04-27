@@ -2,7 +2,7 @@
   "name": "smods-tools",
   "displayName": "Smods Tools",
   "description": "Snippets, IntelliSense, scaffolding, manifest validation, and run/reload for Balatro Smods mod development.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "Steamo",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -129,6 +129,16 @@
         "category": "Smods"
       },
       {
+        "command": "smods.previewShader",
+        "title": "Smods: Preview Shader…",
+        "category": "Smods"
+      },
+      {
+        "command": "smods.shaderPreviewRevert",
+        "title": "Smods: Revert Shader Preview Overrides",
+        "category": "Smods"
+      },
+      {
         "command": "smods.newVoucher",
         "title": "Smods: New Voucher…",
         "category": "Smods"
@@ -248,6 +258,14 @@
         },
         {
           "command": "smods.debugEval",
+          "when": "smods.debugConnected"
+        },
+        {
+          "command": "smods.previewShader",
+          "when": "false"
+        },
+        {
+          "command": "smods.shaderPreviewRevert",
           "when": "smods.debugConnected"
         }
       ]

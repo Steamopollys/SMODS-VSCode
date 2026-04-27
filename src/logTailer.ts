@@ -19,6 +19,8 @@ class LogTailer implements vscode.Disposable {
   private disposed = false;
   private readonly _onLine = new vscode.EventEmitter<string>();
   readonly onLine = this._onLine.event;
+  private readonly _onReset = new vscode.EventEmitter<void>();
+  readonly onReset = this._onReset.event;
 
   constructor() {
     this.channel = vscode.window.createOutputChannel('Balatro Log');
@@ -32,10 +34,19 @@ class LogTailer implements vscode.Disposable {
       );
       return;
     }
+    // Drop any prior session's watcher/timers/handle before re-arming, otherwise
+    // each launch leaks an fs.watch + 500ms interval and they race on position.
+    await this.closeHandles();
     this.currentPath = file;
     this.channel.clear();
     this.channel.appendLine(`[smods] Tailing ${file}`);
+    this._onReset.fire();
     await this.open();
+  }
+
+  /** Stop watching but keep the channel/buffer alive for post-mortem viewing. */
+  async stop(): Promise<void> {
+    await this.closeHandles();
   }
 
   private async open(): Promise<void> {
@@ -131,6 +142,7 @@ class LogTailer implements vscode.Disposable {
     void this.closeHandles();
     this.channel.dispose();
     this._onLine.dispose();
+    this._onReset.dispose();
   }
 }
 

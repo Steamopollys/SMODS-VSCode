@@ -399,6 +399,18 @@ export class DebugAgent {
   }> {
     return this.request('saveStateList');
   }
+
+  applyPreviewShader(args: {
+    source: string;
+    userKey: string;
+    vec2Names: string[];
+  }): Promise<{ applied: true; label: string }> {
+    return this.request('applyPreviewShader', args);
+  }
+
+  revertPreviewShaders(): Promise<{ reverted: number }> {
+    return this.request('revertPreviewShaders');
+  }
 }
 
 function sleep(ms: number): Promise<void> {
