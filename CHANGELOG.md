@@ -4,20 +4,15 @@ All notable changes to the Smods Tools extension are documented here.
 
 ## [0.6.0]
 
-> **Status: WIP.** The shader live preview is a minimal LÖVE→WebGL adapter, not a full reimplementation of LÖVE's render pipeline. The webview may not exactly represent how the shader displays in-game — gamma, blend mode, canvas Y-flip, premultiplied alpha, and a few other LÖVE-only behaviours are approximated rather than emulated. Some shader types (vertex shaders, shaders that depend on uniforms outside the SMODS standard set, shaders that sample additional textures, or anything reading LÖVE-only built-ins) may not animate, may animate at the wrong rate, or may render with subtly different colours. **Use the "Apply to Selected Card" button for ground-truth in-game checking.**
+> **Status: WIP.** The shader live preview is a minimal WebGL adapter, not a full reimplementation of LÖVE's render pipeline. The webview may not exactly represent how the shader displays in-game. Some shader types (vertex shaders, shaders that depend on uniforms outside the SMODS standard set, shaders that sample additional textures) may not animate, may animate at the wrong rate, or may render with subtly different colours. **Use the "Apply to Selected Card" button for ground-truth in-game checking.**
 
 ### Added
 - Shader live preview. CodeLens above any `SMODS.Shader { key, path }` block (and at the top of any `*.fs` file) opens a webview that compiles the shader in WebGL and renders it onto a sample sprite (card / test grid, swappable). The preview reloads automatically on file save. Errors are in a dedicated pane below the canvas.
-- Built-in LÖVE → GLSL ES adapter prelude: macros for `number`, `Image`/`ArrayImage`/`VolumeImage`/`CubeImage`, `Texel`, and `extern`; LÖVE built-ins `MainTex`, `VaryingTexCoord`, `VaryingColor`, `love_ScreenSize`, `love_PixelCoord`; preprocessor defines `LOVE` and `PIXEL`. SMODS-specific uniforms (`time`, `dissolve`, `texture_details`, `image_details`, `hovering`, `burn_colour_*`, `shadow`, …) are NOT predeclared so user shaders can use their own `extern` declarations without `'name' : redefinition` link errors.
-- Auto-detected uniform UI: every `extern (precision)? <type> <name>;` in user source becomes a slider (or a checkbox for `bool`). Each non-bool uniform has a `↻` checkbox that drives the first component from a shared `realTime` accumulator (default-on for `vec*` types, off for scalars).
-- Global `speed` multiplier (0×–4×, default 1×) scales the rate `realTime` advances. 1× matches Balatro's `G.TIMERS.REAL` so animations preview at in-game speed; 0× pauses, higher values speed-up shaders with long sin-period drivers like foil. FPS cap (10–60) and scale slider (1×–6×) round out the playback controls.
-- `time` uniform driven by the Balatro formula `123.33412 * (ID/1.14212 or 12.5123152) % 3000` — a per-card constant, not a real-time ticker — using SMODS's own fallback ID seed. Other engine-driven uniforms (`texture_pixel_size`, `image_details`, `texture_details`) are bound from the canvas dimensions automatically.
 - "Apply to Selected Card" button. When the debug bridge is connected, sends a Lua snippet that:
   - Compiles the shader source via `love.graphics.newShader`.
   - Injects a minimal SMODS-style edition definition into `G.P_CENTERS` and `G.P_CENTER_POOLS.Edition` with a custom `draw` function that pcalls per-frame `:send()` to every parsed `vec2` extern (so wrongly-named animation uniforms don't crash the run via `engine/sprite.lua:108`).
   - Resolves the target card from `area.highlighted[1]` across all common cardareas (the card the user lifted by clicking), falling back to drag/hover/controller focus.
   - Calls `card:set_edition(edition_key, true, true)` to apply silently.
-  - Tracks `card._smods_preview_state` so the previous edition + the previously-stored `G.SHADERS[user_key]` can be restored.
 - `Smods: Revert Shader Preview Overrides` command. Walks every cardarea (jokers, hand, deck, discard, shop, packs, play, consumeables) and restores prior state on every card with a `_smods_preview_state` flag. Palette-gated on `smods.debugConnected`.
 
 ### Fixed
