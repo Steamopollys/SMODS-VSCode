@@ -34,9 +34,6 @@ function findShaderBlocks(doc: vscode.TextDocument): ShaderRef[] {
   return out;
 }
 
-// SMODS resolves SMODS.Shader{ path = '...' } against `<modRoot>/assets/shaders/<path>`
-// (see smods/src/game_object.lua:3376-3387). Match that, falling back to a few legacy
-// layouts so older or in-flight projects still light up the lens.
 function resolveShaderPath(modRoot: string, relPath: string): string | undefined {
   const candidates = [
     path.join(modRoot, 'assets', 'shaders', relPath),
@@ -144,17 +141,15 @@ async function openPreview(
         vscode.window.showWarningMessage('Debug bridge not connected. Launch Balatro with Debug Mode armed first.');
         return;
       }
-      // Slot key in G.SHADERS must match the user's `extern vec2 <key>;` because
-      // Sprite:draw_shader sends the per-frame animation pair under the shader name.
+      // Slot key must match user's `extern vec2 <key>` (Sprite:draw_shader sends under shader name).
+      // Bridge pcalls a send to every parsed vec2 extern in case the user's animation uniform
+      // doesn't follow the SMODS convention of matching the shader key.
       const userKey = (args.shaderKey || 'tmp').replace(/[^A-Za-z0-9_]/g, '_');
-      // Real-world shaders deviate from the convention (e.g. `extern vec2 ionized` in
-      // a shader keyed `false_glow`). Hand the bridge every parsed vec2 extern so it
-      // pcalls a send to each at draw time, covering whichever name is actually live.
-      const STANDARD_VEC2 = new Set(['texture_pixel_size', 'image_details', 'mouse_screen_pos']);
-      const externRe = /extern\s+(?:[A-Za-z_][A-Za-z0-9_]*\s+)?vec2\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g;
       const vec2Names = new Set<string>();
-      for (let m: RegExpExecArray | null; (m = externRe.exec(msg.source as string)); ) {
-        if (!STANDARD_VEC2.has(m[1])) { vec2Names.add(m[1]); }
+      const externVec2Re = /extern\s+vec2\s+(\w+)/g;
+      const standardVec2 = new Set(['love_ScreenSize']);
+      for (let m: RegExpExecArray | null; (m = externVec2Re.exec(msg.source as string)); ) {
+        if (!standardVec2.has(m[1])) { vec2Names.add(m[1]); }
       }
       try {
         const res = await agent.applyPreviewShader({

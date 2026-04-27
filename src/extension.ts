@@ -11,6 +11,7 @@ import { registerPackageCommand } from './package';
 import { registerAtlasPreview } from './atlasPreview';
 import { registerAtlasPacker } from './atlasPacker';
 import { registerShaderPreview } from './shaderPreview';
+import { registerSoundPreview } from './soundPreview';
 import { registerLocalization } from './localization';
 import { registerContextHover } from './contextHover';
 import { registerLovelyHover } from './lovelyHover';
@@ -66,6 +67,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerDebugView(context, debugAgent);
   registerDebugCommands(context, runtime, debugAgent);
   registerShaderPreview(context, debugAgent, output);
+  registerSoundPreview(context);
 
   // Status bar: quick access to launch/stop + reload
   const launchItem = vscode.window.createStatusBarItem(

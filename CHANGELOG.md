@@ -2,6 +2,13 @@
 
 All notable changes to the Smods Tools extension are documented here.
 
+## [0.7.0]
+
+### Added
+- Sound preview. CodeLens on `SMODS.Sound { key, path }` and `play_sound('key', pitch, volume)` calls. Webview with pitch + volume sliders, loop toggle, and copyable `play_sound(...)` snippet.
+- Pitch slider applies a granular pitch shift (preserves duration, no speed change).
+- Built-in Balatro sound keys recognised — no false "not registered" warnings. Previewable when `smods.balatroSourcePath` is set.
+
 ## [0.6.0]
 
 > **Status: WIP.** The shader live preview is a minimal WebGL adapter, not a full reimplementation of LÖVE's render pipeline. The webview may not exactly represent how the shader displays in-game. Some shader types (vertex shaders, shaders that depend on uniforms outside the SMODS standard set, shaders that sample additional textures) may not animate, may animate at the wrong rate, or may render with subtly different colours. **Use the "Apply to Selected Card" button for ground-truth in-game checking.**
